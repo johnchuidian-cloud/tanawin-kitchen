@@ -13,13 +13,33 @@ export const RECIPE_EDIT_FIELDS = [
   { key: 'category', label: 'Category' },
   { key: 'pax_tier', label: 'Pax tier', type: 'pax' },
   { key: 'is_available', label: 'Available', type: 'bool' },
-  { key: 'prep_instructions', label: 'Prep notes' },
+  { key: 'prep_instructions', label: 'Notes' },
+  { key: 'video_url', label: 'Video', type: 'url' },
+  { key: 'image_url', label: 'Image', type: 'url' },
+  { key: 'links', label: 'Links', type: 'list' },
 ]
 
 function fmtFieldVal(field, v) {
   if (field?.type === 'bool') return v ? 'Yes' : 'No'
+  if (field?.type === 'list') return `${Array.isArray(v) ? v.length : 0} link(s)`
   if (v === null || v === undefined || v === '') return '—'
+  if (field?.type === 'url') {
+    try {
+      return new URL(String(v)).hostname
+    } catch {
+      return String(v).slice(0, 30)
+    }
+  }
   return String(v)
+}
+
+// Extract the YouTube video id from any common URL form (watch, youtu.be,
+// shorts, embed). Returns null for non-YouTube URLs.
+export function youTubeId(url) {
+  const m = (url || '').match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/
+  )
+  return m ? m[1] : null
 }
 
 // "Pax tier: 6 → 9; Available: Yes → No"
@@ -49,6 +69,7 @@ export async function fetchRecipe(id) {
     .from('recipes')
     .select(
       'id, name, category, pax_tier, cost_per_serving, menu_price, prep_instructions, is_available, ' +
+        'video_url, image_url, links, ' +
         'lines:recipe_ingredients(id, ingredient_id, quantity, unit, ingredient:ingredients(name, unit, cost_per_unit))'
     )
     .eq('id', id)

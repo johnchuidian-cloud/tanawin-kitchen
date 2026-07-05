@@ -28,6 +28,9 @@ export default function RecipeEdit() {
           pax_tier: r.pax_tier ?? 2,
           is_available: !!r.is_available,
           prep_instructions: r.prep_instructions ?? '',
+          video_url: r.video_url ?? '',
+          image_url: r.image_url ?? '',
+          links: (r.links ?? []).join('\n'),
         })
       })
       .catch((e) => active && setError(e.message || 'Could not load recipe.'))
@@ -42,17 +45,25 @@ export default function RecipeEdit() {
   const diff = () => {
     const before = {}
     const changes = {}
+    const formLinks = form.links
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
     const pairs = [
       ['name', recipe.name ?? '', form.name.trim()],
       ['category', recipe.category ?? '', form.category.trim()],
       ['pax_tier', recipe.pax_tier, Number(form.pax_tier)],
       ['is_available', !!recipe.is_available, !!form.is_available],
       ['prep_instructions', recipe.prep_instructions ?? '', form.prep_instructions.trim()],
+      ['video_url', recipe.video_url ?? '', form.video_url.trim()],
+      ['image_url', recipe.image_url ?? '', form.image_url.trim()],
+      ['links', JSON.stringify(recipe.links ?? []), JSON.stringify(formLinks)],
     ]
     for (const [k, orig, next] of pairs) {
       if (orig !== next) {
-        before[k] = orig
-        changes[k] = next
+        // links are compared as JSON but stored as real arrays
+        before[k] = k === 'links' ? JSON.parse(orig) : orig
+        changes[k] = k === 'links' ? JSON.parse(next) : next
       }
     }
     return { before, changes }
@@ -161,12 +172,39 @@ export default function RecipeEdit() {
             </select>
           </div>
           <div className="field">
-            <label>Prep notes</label>
+            <label>Notes</label>
             <textarea
               rows={3}
               value={form.prep_instructions}
               onChange={(e) => set('prep_instructions', e.target.value)}
-              placeholder="Optional prep instructions"
+              placeholder="Prep instructions, tips, reminders…"
+            />
+          </div>
+          <div className="field">
+            <label>YouTube video (optional)</label>
+            <input
+              type="url"
+              value={form.video_url}
+              onChange={(e) => set('video_url', e.target.value)}
+              placeholder="https://youtu.be/…"
+            />
+          </div>
+          <div className="field">
+            <label>Photo URL (optional — also used by the menu)</label>
+            <input
+              type="url"
+              value={form.image_url}
+              onChange={(e) => set('image_url', e.target.value)}
+              placeholder="https://…/photo.jpg"
+            />
+          </div>
+          <div className="field">
+            <label>External links (optional, one per line)</label>
+            <textarea
+              rows={3}
+              value={form.links}
+              onChange={(e) => set('links', e.target.value)}
+              placeholder={'https://example.com/recipe\nhttps://blog.com/tips'}
             />
           </div>
           <button className="btn" type="submit" disabled={busy}>

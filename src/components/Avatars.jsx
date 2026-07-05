@@ -5,23 +5,29 @@
 const ROLE_EMOJI = { admin: '👑', staff: '👷', guest: '👁️' }
 
 function Lexi() {
-  // A horse 🐴 — brown head, dark forelock, cream muzzle.
+  // A flower 🌸 in the brand palette — terracotta petals, amber heart,
+  // little leaves; a nod to the starburst over the Tanawin "i".
+  const petals = [0, 45, 90, 135, 180, 225, 270, 315]
   return (
     <svg viewBox="0 0 40 40" aria-label="Lexi">
       <circle cx="20" cy="20" r="20" fill="#F1E4D6" />
-      <path d="M11.5 10.5 L14 3.5 L17.5 9.5 Z" fill="#8C5A33" />
-      <path d="M28.5 10.5 L26 3.5 L22.5 9.5 Z" fill="#8C5A33" />
-      <path d="M12.5 9 L14.2 5 L16.4 8.6 Z" fill="#E5C6A8" />
-      <path d="M27.5 9 L25.8 5 L23.6 8.6 Z" fill="#E5C6A8" />
-      <ellipse cx="20" cy="20.5" rx="10" ry="13.5" fill="#A9714B" />
-      <ellipse cx="20" cy="28" rx="7.2" ry="5.6" fill="#E5C6A8" />
-      <circle cx="17.2" cy="28.5" r="1.15" fill="#6E4B38" />
-      <circle cx="22.8" cy="28.5" r="1.15" fill="#6E4B38" />
-      <path d="M20 6.5 C15.5 8.5 14.8 13 16.6 15 C17.8 12 22.2 12 23.4 15 C25.2 13 24.5 8.5 20 6.5 Z" fill="#5B3A21" />
-      <circle cx="15.2" cy="18.5" r="1.7" fill="#2b1a12" />
-      <circle cx="24.8" cy="18.5" r="1.7" fill="#2b1a12" />
-      <circle cx="15.7" cy="18" r="0.5" fill="#fff" />
-      <circle cx="25.3" cy="18" r="0.5" fill="#fff" />
+      <path d="M12 30.5 C8.5 29.5 7 26.5 7.5 24 C11 24.5 13 27 13.2 29.8 Z" fill="#5F7A5F" />
+      <path d="M28 30.5 C31.5 29.5 33 26.5 32.5 24 C29 24.5 27 27 26.8 29.8 Z" fill="#5F7A5F" />
+      {petals.map((a, i) => (
+        <ellipse
+          key={a}
+          cx="20"
+          cy="10.8"
+          rx="4"
+          ry="6.6"
+          fill={i % 2 ? '#B14C2E' : '#CC7459'}
+          transform={`rotate(${a} 20 20)`}
+        />
+      ))}
+      <circle cx="20" cy="20" r="6.2" fill="#C98A1E" />
+      <circle cx="17.8" cy="19.2" r="1.1" fill="#2b1a12" />
+      <circle cx="22.2" cy="19.2" r="1.1" fill="#2b1a12" />
+      <path d="M17.7 21.8 Q20 23.6 22.3 21.8" stroke="#2b1a12" strokeWidth="1" fill="none" strokeLinecap="round" />
     </svg>
   )
 }

@@ -1,0 +1,321 @@
+/* ============================================================
+   TANAWIN KITCHEN — brand styles (ported from the mockup)
+   ============================================================ */
+:root{
+  /* brand maroons match Finance's canonical palette (sampled from the logo) */
+  --terra:#9A3518;
+  --terra-soft:#B14C2E;
+  --terra-light:#CC7459;
+  --cream:#FBF6EF;
+  --cream-2:#F5EDE4;
+  --ink:#3D2317;
+  --ink-soft:#6E4B38;
+  --green:#5F7A5F;
+  --amber:#C98A1E;
+  --line:#E6D8C9;
+  --shadow:0 6px 20px rgba(124,55,21,.10);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+html,body,#root{height:100%}
+
+body{
+  /* same stack as Finance for cross-app parity */
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--cream);
+  color:var(--ink);
+}
+
+/* ---- app frame: mobile-first, centered on wide screens ---- */
+.app{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100%;
+  background:var(--cream);
+  display:flex;
+  flex-direction:column;
+  position:relative;
+}
+
+/* ---- app bar ---- */
+.appbar{
+  background:var(--terra);color:var(--cream);
+  padding:14px 20px 16px;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:10;
+}
+.logo-mark{
+  font-size:21px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:2px;
+}
+/* the flower is the dot of the i: dotless ı with ✸ floated directly above,
+   taking no horizontal space (inline it reads as a letter — "Tanawion") */
+.logo-i{position:relative;display:inline-block}
+.flower{
+  position:absolute;left:50%;bottom:1.6em;transform:translateX(-50%);
+  color:#F1E4D6;font-size:.5em;line-height:1;  /* cream-on-maroon, per logo */
+}
+.appbar .sub{font-size:11px;opacity:.8;font-weight:500;margin-top:1px}
+.appbar .role{
+  margin-left:auto;background:rgba(255,255,255,.16);
+  padding:5px 11px;border-radius:20px;font-size:11px;font-weight:600;
+  border:none;color:var(--cream);font-family:inherit;cursor:pointer;
+}
+
+/* ---- scroll area ---- */
+.screen{flex:1;overflow-y:auto;padding:16px 16px 90px}
+
+h2.title{font-size:20px;color:var(--terra);margin-bottom:3px;font-weight:700}
+.muted{color:var(--ink-soft);font-size:12.5px}
+
+/* ---- stat strip ---- */
+.stats{display:flex;gap:9px;margin:14px 0 18px}
+.stat{
+  flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:11px 9px;text-align:center;box-shadow:var(--shadow);cursor:pointer;
+}
+.stat .num{font-size:22px;font-weight:800;line-height:1}
+.stat.low .num{color:var(--terra)}
+.stat.pend .num{color:var(--amber)}
+.stat.waste .num{color:var(--green)}
+.stat .lbl{font-size:10px;color:var(--ink-soft);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+
+.section-label{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--terra-light);margin:6px 2px 10px}
+
+/* ---- action grid ---- */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.action{
+  background:#fff;border:1px solid var(--line);border-radius:16px;
+  padding:16px 13px;cursor:pointer;box-shadow:var(--shadow);
+  transition:transform .12s, box-shadow .12s;
+  text-align:left;font-family:inherit;color:inherit;width:100%;
+}
+.action:active{transform:scale(.97)}
+.action .ico{
+  width:42px;height:42px;border-radius:12px;background:var(--cream-2);
+  display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:10px;
+}
+.action .name{font-weight:700;font-size:14.5px;color:var(--ink)}
+.action .desc{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.action .badge{
+  float:right;background:var(--terra);color:#fff;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:10px;margin-top:-2px;
+}
+
+/* ---- cards / rows ---- */
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:11px;box-shadow:var(--shadow)}
+.row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.dot.ok{background:var(--green)}
+.dot.lowd{background:var(--terra)}
+.dot.mid{background:var(--amber)}
+.row .info{flex:1}
+.row .info .n{font-weight:650;font-size:14px}
+.row .info .m{font-size:11.5px;color:var(--ink-soft);margin-top:1px}
+.row .qty{font-weight:700;font-size:14px;text-align:right}
+.row .qty small{display:block;font-weight:500;color:var(--ink-soft);font-size:10px}
+.pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px}
+.pill.low{background:#F6E0D5;color:var(--terra)}
+.pill.ok{background:#E1EADD;color:var(--green)}
+
+/* ---- buttons ---- */
+.btn{
+  width:100%;background:var(--terra);color:#fff;border:none;
+  padding:13px;border-radius:13px;font-size:14.5px;font-weight:700;cursor:pointer;
+  margin-top:6px;font-family:inherit;
+}
+.btn:active{background:var(--terra-soft)}
+.btn.ghost{background:transparent;color:var(--terra);border:1.5px solid var(--terra)}
+.btn.green{background:var(--green)}
+
+/* ---- bottom nav ---- */
+.nav{
+  position:sticky;bottom:0;left:0;right:0;background:#fff;
+  border-top:1px solid var(--line);display:flex;padding:8px 6px 10px;
+  box-shadow:0 -4px 16px rgba(124,55,21,.06);
+}
+.nav a{
+  flex:1;background:none;border:none;cursor:pointer;font-family:inherit;
+  display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-soft);padding:4px 0;
+  text-decoration:none;
+}
+.nav a .ni{font-size:19px}
+.nav a .nl{font-size:10px;font-weight:600}
+.nav a.on{color:var(--terra)}
+
+.note{font-size:11px;color:var(--ink-soft);background:var(--cream-2);border-radius:10px;padding:9px 11px;margin-top:8px;line-height:1.5}
+
+/* ---- finance import: search, date groups, remembered tags ---- */
+.import-search{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;
+  font-size:14px;font-family:inherit;background:#fff;color:var(--ink);margin-bottom:11px;
+}
+.import-search:focus{outline:none;border-color:var(--terra-light)}
+.group-head{
+  width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;
+  background:none;border:none;font-family:inherit;cursor:pointer;text-align:left;
+  font-size:12.5px;font-weight:700;color:var(--terra);padding:4px 2px;
+}
+.group-head.standalone{margin:8px 0 8px}
+.group-total{color:var(--ink-soft);font-weight:600;font-size:12px}
+.tag-remembered{
+  font-size:9.5px;font-weight:700;color:var(--green);background:#E1EADD;
+  padding:2px 7px;border-radius:10px;margin-left:7px;vertical-align:1px;
+  text-transform:uppercase;letter-spacing:.3px;
+}
+.skip-card{border-left:4px solid var(--line)}
+
+/* ---- inline row action (undo) ---- */
+.row-action{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+.mini-btn{
+  background:none;border:1.5px solid var(--terra);color:var(--terra);border-radius:9px;
+  font-size:11px;font-weight:700;padding:4px 11px;cursor:pointer;font-family:inherit;
+}
+.mini-btn:active{background:var(--cream-2)}
+.mini-btn:disabled{opacity:.5}
+.undone-tag{font-size:10px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px}
+
+/* ---- finance-pull toggle ---- */
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;background:#fff;
+  border:1px solid var(--line);border-radius:14px;padding:14px;
+  box-shadow:var(--shadow);margin-bottom:11px;
+}
+.switch{
+  width:46px;height:27px;background:#d9cabb;border-radius:20px;position:relative;
+  cursor:pointer;flex:none;transition:background .2s;border:none;padding:0;
+}
+.switch.on{background:var(--green)}
+.switch::after{
+  content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;
+  background:#fff;border-radius:50%;transition:left .2s;
+}
+.switch.on::after{left:22px}
+
+/* ---- approvals ---- */
+.approval{border-left:4px solid var(--amber)}
+.approval .who{font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+.appr-actions{display:flex;gap:9px;margin-top:11px}
+.appr-actions .btn{margin-top:0}
+
+/* ---- ingredient line editor ---- */
+.line-edit{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.line-edit:last-of-type{border-bottom:none}
+.line-edit .ln{flex:1;font-size:13.5px;font-weight:600;min-width:0}
+.line-edit input{
+  width:78px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;
+  font-size:14px;font-family:inherit;background:#fff;color:var(--ink);text-align:right;
+}
+.line-edit input:focus{outline:none;border-color:var(--terra-light)}
+.line-edit .lu{font-size:11.5px;color:var(--ink-soft);width:24px}
+.line-edit .rm{
+  background:none;border:none;color:var(--terra);font-size:15px;cursor:pointer;
+  padding:2px 4px;line-height:1;
+}
+
+/* ---- recipe cost breakdown ---- */
+.recipe-cost{
+  background:var(--cream-2);border-radius:12px;padding:13px;margin:12px 0;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.recipe-cost .big{font-size:22px;font-weight:800;color:var(--terra)}
+.cost-lbl{font-size:11px;text-transform:uppercase;font-weight:700;color:var(--ink-soft)}
+.ing-line{
+  display:flex;justify-content:space-between;padding:9px 0;
+  border-bottom:1px dashed var(--line);font-size:13.5px;
+}
+.ing-line:last-child{border-bottom:none}
+.ing-line .c{color:var(--ink-soft)}
+
+/* placeholder for screens not built yet */
+.placeholder{
+  text-align:center;color:var(--ink-soft);font-size:13px;
+  background:var(--cream-2);border:1px dashed var(--line);
+  border-radius:14px;padding:28px 16px;margin-top:16px;
+}
+
+/* ---- form fields ---- */
+.field{margin-bottom:13px}
+.field label{font-size:11.5px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.field input,.field select,.field textarea{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;
+  font-size:14px;font-family:inherit;background:#fff;color:var(--ink);
+}
+.field textarea{resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--terra-light)}
+
+.error{
+  background:#F6E0D5;color:var(--terra);font-size:12.5px;font-weight:600;
+  padding:10px 12px;border-radius:11px;margin-bottom:12px;
+}
+.success{
+  background:#E1EADD;color:var(--green);font-size:12.5px;font-weight:600;
+  padding:10px 12px;border-radius:11px;margin-bottom:12px;
+}
+.guest-banner{
+  background:#EFE6DA;border:1px dashed var(--terra-light);color:var(--terra-soft);
+  font-size:11.5px;font-weight:600;padding:9px 12px;border-radius:11px;
+  margin-top:14px;text-align:center;
+}
+
+/* ---- login screen ---- */
+.auth{
+  min-height:100%;display:flex;flex-direction:column;justify-content:center;
+  padding:24px 22px;max-width:480px;margin:0 auto;background:var(--cream);
+}
+.auth .brand{text-align:center;margin-bottom:26px}
+.brand-icon{width:76px;height:76px;border-radius:18px;display:block;margin:0 auto 12px;box-shadow:var(--shadow)}
+.auth .brand .logo-mark{justify-content:center;color:var(--terra);font-size:30px}
+.auth .brand .flower{color:var(--terra-light)}
+.auth .brand .sub{color:var(--ink-soft);font-size:13px;margin-top:4px;font-weight:600}
+.auth .card{margin-bottom:0}
+.auth .welcome{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.auth .welcome-sub{color:var(--ink-soft);font-size:12.5px;margin-bottom:16px}
+
+/* ---- PIN login: user list + pin pad ---- */
+.auth .who-label{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-bottom:12px}
+.user-btn{
+  width:100%;display:flex;align-items:center;gap:12px;text-align:left;
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;
+  box-shadow:var(--shadow);margin-bottom:10px;cursor:pointer;font-family:inherit;color:inherit;
+  transition:transform .12s;
+}
+.user-btn:active{transform:scale(.99)}
+.user-btn .avatar{
+  width:40px;height:40px;border-radius:50%;background:var(--cream-2);
+  display:flex;align-items:center;justify-content:center;font-size:19px;flex:none;
+}
+.user-btn .avatar.admin{background:#E1EADD}
+.user-btn .un{font-weight:700;font-size:15px;display:block}
+.user-btn .ur{font-size:11.5px;color:var(--ink-soft);margin-top:1px;display:block}
+.pin-input{
+  width:100%;text-align:center;font-size:26px;letter-spacing:.5em;
+  padding:13px;border:1px solid var(--line);border-radius:12px;font-family:inherit;
+  color:var(--ink);background:#fff;margin-top:4px;
+}
+.pin-input:focus{outline:none;border-color:var(--terra-light)}
+.link-btn{
+  background:none;border:none;color:var(--terra);font-family:inherit;
+  font-size:12.5px;font-weight:600;cursor:pointer;margin-bottom:12px;padding:0;display:block;
+}
+
+/* ---- splash while auth loads ---- */
+.splash{
+  min-height:100%;display:flex;align-items:center;justify-content:center;
+  color:var(--terra);font-weight:700;font-size:15px;background:var(--cream);
+}
+
+/* ---- role badge dropdown menu ---- */
+.role-wrap{margin-left:auto;position:relative}
+.menu{
+  position:absolute;right:0;top:38px;background:#fff;border:1px solid var(--line);
+  border-radius:12px;box-shadow:var(--shadow);min-width:170px;overflow:hidden;z-index:20;
+}
+.menu .who{padding:11px 14px;border-bottom:1px solid var(--line);color:var(--ink)}
+.menu .who .n{font-weight:700;font-size:13px}
+.menu .who .r{font-size:11px;color:var(--ink-soft);margin-top:1px}
+.menu button{
+  width:100%;text-align:left;background:none;border:none;font-family:inherit;
+  padding:11px 14px;font-size:13px;font-weight:600;color:var(--terra);cursor:pointer;
+}
+.menu button:active{background:var(--cream-2)}

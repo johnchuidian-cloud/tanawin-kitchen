@@ -1,0 +1,11 @@
+// Cloudflare Workers (static assets) config — used by the git-connected
+// build. Assets-only worker: serve the Vite build, with SPA fallback so
+// client-side routes like /recipes/:id resolve to index.html.
+{
+  "name": "tanawin-kitchen",
+  "compatibility_date": "2026-07-05",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

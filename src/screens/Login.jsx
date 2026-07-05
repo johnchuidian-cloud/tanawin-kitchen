@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import Wordmark from '../components/Wordmark.jsx'
 import { resetPinWithRecoveryCode } from '../lib/staff.js'
+import Avatar from '../components/Avatars.jsx'
 
-const ROLE_AVATAR = { admin: '👑', staff: '👷', guest: '👁️' }
 const ROLE_DESC = { admin: 'Admin', staff: 'Staff', guest: 'View only' }
 
 function Brand() {
@@ -106,7 +106,7 @@ export default function Login() {
 
           {users.map((u) => (
             <button key={u.id} className="user-btn" onClick={() => pickUser(u.name)}>
-              <span className={`avatar ${u.role}`}>{ROLE_AVATAR[u.role] ?? '👤'}</span>
+              <Avatar name={u.name} role={u.role} className={`avatar ${u.role}`} />
               <span>
                 <span className="un">{u.name}</span>
                 <span className="ur">{ROLE_DESC[u.role] ?? u.role}</span>

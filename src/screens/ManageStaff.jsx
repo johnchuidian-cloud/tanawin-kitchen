@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { updateUser, addUser, generateRecoveryCode, validPin } from '../lib/staff.js'
+import Avatar from '../components/Avatars.jsx'
 
-const ROLE_AVATAR = { admin: '👑', staff: '👷', guest: '👁️' }
 const ROLE_DESC = { admin: 'Admin', staff: 'Staff', guest: 'View only' }
 
 export default function ManageStaff() {
@@ -117,7 +117,7 @@ export default function ManageStaff() {
         {users.map((u) => (
           <div key={u.id}>
             <div className="row">
-              <span className="avatar-sm">{ROLE_AVATAR[u.role] ?? '👤'}</span>
+              <Avatar name={u.name} role={u.role} className="avatar-sm" />
               <div className="info">
                 <div className="n">{u.name}{u.id === currentUser.id ? ' (you)' : ''}</div>
                 <div className="m">{ROLE_DESC[u.role] ?? u.role}</div>

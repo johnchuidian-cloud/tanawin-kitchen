@@ -179,6 +179,7 @@ h2.title{font-size:20px;color:var(--terra);margin-bottom:3px;font-weight:700}
 .avatar-sm{
   width:34px;height:34px;border-radius:50%;background:var(--cream-2);
   display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;
+  overflow:hidden;
 }
 .edit-panel{
   background:var(--cream-2);border-radius:12px;padding:13px;margin:2px 0 10px;
@@ -298,8 +299,10 @@ h2.title{font-size:20px;color:var(--terra);margin-bottom:3px;font-weight:700}
 .user-btn .avatar{
   width:40px;height:40px;border-radius:50%;background:var(--cream-2);
   display:flex;align-items:center;justify-content:center;font-size:19px;flex:none;
+  overflow:hidden;
 }
 .user-btn .avatar.admin{background:#E1EADD}
+.avatar svg,.avatar-sm svg{width:100%;height:100%;display:block;border-radius:50%}
 .user-btn .un{font-weight:700;font-size:15px;display:block}
 .user-btn .ur{font-size:11.5px;color:var(--ink-soft);margin-top:1px;display:block}
 .pin-input{

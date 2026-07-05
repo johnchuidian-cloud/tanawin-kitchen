@@ -30,14 +30,17 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase
       .from('kitchen_users')
       .select('id, name, role, pin')
-      .order('role', { ascending: true })
+      .order('created_at', { ascending: true })
     if (error) {
       console.error('Could not load users:', error)
       if (!loadedOnce.current) setLoadState('error')
       return
     }
     loadedOnce.current = true
-    setUsers(data ?? [])
+    // Admin first, then staff, guest last (like Finance); stable sort keeps
+    // people in the order they were added within each role.
+    const rank = { admin: 0, staff: 1, guest: 2 }
+    setUsers((data ?? []).slice().sort((a, b) => (rank[a.role] ?? 9) - (rank[b.role] ?? 9)))
     setLoadState('ready')
   }
 

@@ -175,6 +175,20 @@ h2.title{font-size:20px;color:var(--terra);margin-bottom:3px;font-weight:700}
 .mini-btn:disabled{opacity:.5}
 .undone-tag{font-size:10px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px}
 
+/* ---- manage staff ---- */
+.avatar-sm{
+  width:34px;height:34px;border-radius:50%;background:var(--cream-2);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;
+}
+.edit-panel{
+  background:var(--cream-2);border-radius:12px;padding:13px;margin:2px 0 10px;
+}
+.edit-panel .field input{background:#fff}
+.recovery-code{
+  text-align:center;font-size:20px;font-weight:800;letter-spacing:.12em;
+  color:var(--terra);padding:10px 0 2px;font-variant-numeric:tabular-nums;
+}
+
 /* ---- finance-pull toggle ---- */
 .toggle-row{
   display:flex;align-items:center;justify-content:space-between;background:#fff;

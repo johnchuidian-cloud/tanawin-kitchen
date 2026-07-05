@@ -17,6 +17,7 @@ import Suppliers from './screens/Suppliers.jsx'
 import Activity from './screens/Activity.jsx'
 import More from './screens/More.jsx'
 import Settings from './screens/Settings.jsx'
+import ManageStaff from './screens/ManageStaff.jsx'
 import Placeholder from './screens/Placeholder.jsx'
 
 export default function App() {
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/more" element={<More />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/staff" element={<ManageStaff />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="*" element={<Placeholder title="Not found" />} />
         </Routes>

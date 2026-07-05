@@ -7,6 +7,7 @@ const LINKS = [
   { to: '/purchases', icon: '🧾', name: 'Purchases', desc: 'Restock & Finance pull' },
   { to: '/waste', icon: '🗑️', name: 'Waste log', desc: 'Spoilage & losses' },
   { to: '/approvals', icon: '✅', name: 'Approvals', desc: 'Awaiting sign-off' },
+  { to: '/staff', icon: '👥', name: 'Manage staff', desc: 'Names, PINs & recovery code', adminOnly: true },
   { to: '/settings', icon: '⚙️', name: 'Settings', desc: 'Team controls', adminOnly: true },
 ]
 

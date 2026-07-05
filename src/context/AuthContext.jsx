@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 
 // PIN-based auth, mirroring the Tanawin Finance app: no Supabase Auth.
@@ -20,17 +20,23 @@ export function AuthProvider({ children }) {
   const [loadState, setLoadState] = useState('loading') // loading | ready | error
   const [userId, setUserId] = useState(() => sessionStorage.getItem(SESSION_KEY))
 
+  // Only the FIRST load shows the loading gate — later refreshes (after a PIN
+  // change etc.) keep the current list on screen so mounted screens don't get
+  // unmounted mid-flow.
+  const loadedOnce = useRef(false)
+
   const loadUsers = async () => {
-    setLoadState('loading')
+    if (!loadedOnce.current) setLoadState('loading')
     const { data, error } = await supabase
       .from('kitchen_users')
       .select('id, name, role, pin')
       .order('role', { ascending: true })
     if (error) {
       console.error('Could not load users:', error)
-      setLoadState('error')
+      if (!loadedOnce.current) setLoadState('error')
       return
     }
+    loadedOnce.current = true
     setUsers(data ?? [])
     setLoadState('ready')
   }

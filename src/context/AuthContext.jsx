@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { verifyPin } from '../lib/pin.js'
 
 // PIN-based auth, mirroring the Tanawin Finance app: no Supabase Auth.
 // The kitchen_users table (name + role + pin) is loaded with the anon key,
@@ -50,15 +51,18 @@ export function AuthProvider({ children }) {
 
   const currentUser = users.find((u) => u.id === userId) ?? null
 
-  const login = (name, pin) => {
-    const user = users.find(
-      (u) => u.name.toLowerCase() === name.toLowerCase() && u.pin === pin
-    )
-    if (user) {
-      sessionStorage.setItem(SESSION_KEY, user.id)
-      setUserId(user.id)
+  // Async: stored PINs are SHA-256 digests (legacy plaintext rows still
+  // verify until migrated) — see lib/pin.js.
+  const login = async (name, pin) => {
+    const candidates = users.filter((u) => u.name.toLowerCase() === name.toLowerCase())
+    for (const user of candidates) {
+      if (await verifyPin(pin, user.pin)) {
+        sessionStorage.setItem(SESSION_KEY, user.id)
+        setUserId(user.id)
+        return user
+      }
     }
-    return user ?? null
+    return null
   }
 
   const logout = () => {

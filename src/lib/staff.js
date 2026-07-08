@@ -1,14 +1,16 @@
 import { supabase } from './supabase.js'
 import { logActivity } from './activity.js'
 import { fetchSettings, setSetting } from './settings.js'
+import { sha256Hex } from './pin.js'
 
 export const validPin = (pin) => /^\d{4}$/.test(pin)
 
-// Rename and/or re-PIN a user. PIN values are never written to the audit log.
+// Rename and/or re-PIN a user. Only the PIN's SHA-256 digest is stored, and
+// PIN values are never written to the audit log.
 export async function updateUser(user, { name, pin }, actorId) {
   const patch = {}
   if (name && name.trim() && name.trim() !== user.name) patch.name = name.trim()
-  if (pin) patch.pin = pin
+  if (pin) patch.pin = await sha256Hex(pin)
   if (Object.keys(patch).length === 0) return false
   const { error } = await supabase.from('kitchen_users').update(patch).eq('id', user.id)
   if (error) throw error
@@ -23,7 +25,7 @@ export async function updateUser(user, { name, pin }, actorId) {
 export async function addUser({ name, role, pin }, actorId) {
   const { data, error } = await supabase
     .from('kitchen_users')
-    .insert({ name: name.trim(), role, pin })
+    .insert({ name: name.trim(), role, pin: await sha256Hex(pin) })
     .select()
     .single()
   if (error) throw error
@@ -38,11 +40,6 @@ export async function addUser({ name, role, pin }, actorId) {
 // The plaintext code is shown ONCE at generation; only its SHA-256 hash is
 // stored (in kitchen_settings under 'admin_recovery' — no new table needed).
 // Using it resets the PIN and burns the code.
-
-async function sha256Hex(s) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
-}
 
 const normalizeCode = (code) => code.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
@@ -76,7 +73,10 @@ export async function resetPinWithRecoveryCode(user, code, newPin) {
   if (hash !== rec.hash) {
     return { ok: false, reason: "Recovery code doesn't match. Check for typos." }
   }
-  const { error } = await supabase.from('kitchen_users').update({ pin: newPin }).eq('id', user.id)
+  const { error } = await supabase
+    .from('kitchen_users')
+    .update({ pin: await sha256Hex(newPin) })
+    .eq('id', user.id)
   if (error) return { ok: false, reason: error.message }
   await setSetting('admin_recovery', null) // burn: one-time use
   await logActivity(`PIN reset via recovery code — ${user.name}`, user.id, { type: 'pin_recovery' })

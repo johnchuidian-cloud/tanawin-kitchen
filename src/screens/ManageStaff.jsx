@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { updateUser, addUser, generateRecoveryCode, validPin } from '../lib/staff.js'
+import { sha256Hex } from '../lib/pin.js'
 import Avatar from '../components/Avatars.jsx'
 
 const ROLE_DESC = { admin: 'Admin', staff: 'Staff', guest: 'View only' }
@@ -34,8 +35,12 @@ export default function ManageStaff() {
     setSuccess('')
   }
 
-  const pinTakenBy = (value, exceptId) =>
-    users.find((u) => u.id !== exceptId && u.pin === value)
+  // Stored PINs are digests; same PIN -> same digest, so uniqueness still
+  // checks cleanly (legacy plaintext rows compared directly too).
+  const pinTakenBy = async (value, exceptId) => {
+    const digest = await sha256Hex(value)
+    return users.find((u) => u.id !== exceptId && (u.pin === value || u.pin === digest))
+  }
 
   const handleSave = async (u) => {
     setError('')
@@ -44,7 +49,7 @@ export default function ManageStaff() {
       setError('PIN must be exactly 4 digits.')
       return
     }
-    if (pin && pinTakenBy(pin, u.id)) {
+    if (pin && (await pinTakenBy(pin, u.id))) {
       setError('That PIN is already used by someone else — pick another.')
       return
     }
@@ -73,7 +78,7 @@ export default function ManageStaff() {
       setError('PIN must be exactly 4 digits.')
       return
     }
-    if (pinTakenBy(newUser.pin, null)) {
+    if (await pinTakenBy(newUser.pin, null)) {
       setError('That PIN is already used by someone else — pick another.')
       return
     }

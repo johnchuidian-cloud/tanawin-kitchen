@@ -66,8 +66,8 @@ export default function Login() {
     )
   }
 
-  const tryPin = (value) => {
-    const user = login(selectedName, value)
+  const tryPin = async (value) => {
+    const user = await login(selectedName, value)
     if (!user) {
       setError('PIN incorrect — try again')
       setPin('')

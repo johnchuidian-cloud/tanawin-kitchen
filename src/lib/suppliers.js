@@ -11,6 +11,27 @@ export async function fetchSuppliers() {
 }
 
 // Suppliers are managed directly by the admin (not through the approval queue).
+export async function updateSupplier(supplier, fields, actorId) {
+  const patch = {
+    name: fields.name.trim(),
+    category: fields.category.trim() || null,
+    location: fields.location.trim() || null,
+    contact: fields.contact.trim() || null,
+  }
+  const { data, error } = await supabase
+    .from('suppliers')
+    .update(patch)
+    .eq('id', supplier.id)
+    .select()
+    .single()
+  if (error) throw error
+  await logActivity(`Supplier updated — ${patch.name}`, actorId, {
+    type: 'supplier_update',
+    supplier_id: supplier.id,
+  })
+  return data
+}
+
 export async function addSupplier(fields, actorId) {
   const row = {
     name: fields.name.trim(),

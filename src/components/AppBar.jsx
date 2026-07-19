@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import Wordmark from './Wordmark.jsx'
 
 export default function AppBar() {
-  const { currentUser, roleLabel, logout } = useAuth()
+  const { currentUser, role, roleLabel, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -26,6 +26,16 @@ export default function AppBar() {
         <Wordmark />
         <div className="sub">Kitchen</div>
       </div>
+
+      {role === 'admin' ? (
+        <a
+          className="hub-link"
+          href="https://tanawin-hub.tanawinbnb.workers.dev/"
+          title="Back to the Tanawin Hub"
+        >
+          ⌂ Hub
+        </a>
+      ) : null}
 
       <div className="role-wrap" ref={wrapRef}>
         <button className="role" onClick={() => setOpen((o) => !o)}>

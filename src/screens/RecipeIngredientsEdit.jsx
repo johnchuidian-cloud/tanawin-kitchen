@@ -96,7 +96,7 @@ export default function RecipeIngredientsEdit() {
     }
     const summary =
       `Edit ingredients — ${recipe.name}: ${diff}. ` +
-      `Cost/serving ${peso(recipe.cost_per_serving)} → ${peso(preview.costPerServing)}`
+      `Cost/serving ${recipe.tiers?.[0]?.cost != null ? peso(recipe.tiers[0].cost) : '—'} → ${peso(preview.costPerServing)}`
 
     setBusy(true)
     try {
@@ -214,13 +214,15 @@ export default function RecipeIngredientsEdit() {
               <div className="big" style={{ fontSize: 18 }}>{peso(preview.costPerServing)}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div className="cost-lbl">Menu ×3</div>
-              <div className="big" style={{ fontSize: 18 }}>{peso(preview.menuPrice)}</div>
+              <div className="cost-lbl">Menu price</div>
+              <div className="big" style={{ fontSize: 18 }}>
+                {recipe.tiers?.[0]?.price != null ? peso(recipe.tiers[0].price) : '—'}
+              </div>
             </div>
           </div>
           <div className="note" style={{ marginTop: 0 }}>
-            Currently stored: {peso(recipe.cost_per_serving)}/serving. Costs only change when you tap
-            Recalculate — this preview shows what it would become.
+            Costs only change when you tap Recalculate — this preview shows what they would become.
+            Prices are hand-set on the Tanawin Menu and never computed here.
           </div>
 
           <button className="btn" type="submit" disabled={busy}>

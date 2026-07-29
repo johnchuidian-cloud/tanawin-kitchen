@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { fetchRecipe, describeRecipeChanges } from '../lib/recipes.js'
 import { submitRecipeEdit, applyRecipeEditDirect } from '../lib/approvals.js'
 
-const PAX_TIERS = [2, 6, 9]
+const PAX_TIERS = [1, 2, 6, 9, 10]
 
 export default function RecipeEdit() {
   const { id } = useParams()
@@ -31,6 +31,7 @@ export default function RecipeEdit() {
           video_url: r.video_url ?? '',
           image_url: r.image_url ?? '',
           links: (r.links ?? []).join('\n'),
+          tierPrices: (r.tiers ?? []).map((t) => (t.price == null ? '' : String(t.price))),
         })
       })
       .catch((e) => active && setError(e.message || 'Could not load recipe.'))
@@ -59,11 +60,21 @@ export default function RecipeEdit() {
       ['image_url', recipe.image_url ?? '', form.image_url.trim()],
       ['links', JSON.stringify(recipe.links ?? []), JSON.stringify(formLinks)],
     ]
+    // Tier PRICES (hand-set, mirroring the Tanawin Menu): rebuild the tiers
+    // array with edited prices; costs pass through untouched.
+    if (recipe.tiers?.length) {
+      const newTiers = recipe.tiers.map((t, i) => {
+        const raw = (form.tierPrices[i] ?? '').trim()
+        return { ...t, price: raw === '' ? null : Number(raw) }
+      })
+      pairs.push(['tiers', JSON.stringify(recipe.tiers), JSON.stringify(newTiers)])
+    }
     for (const [k, orig, next] of pairs) {
       if (orig !== next) {
-        // links are compared as JSON but stored as real arrays
-        before[k] = k === 'links' ? JSON.parse(orig) : orig
-        changes[k] = k === 'links' ? JSON.parse(next) : next
+        // links/tiers are compared as JSON but stored as real values
+        const isJson = k === 'links' || k === 'tiers'
+        before[k] = isJson ? JSON.parse(orig) : orig
+        changes[k] = isJson ? JSON.parse(next) : next
       }
     }
     return { before, changes }
@@ -151,16 +162,41 @@ export default function RecipeEdit() {
             <label>Category</label>
             <input value={form.category} onChange={(e) => set('category', e.target.value)} />
           </div>
-          <div className="field">
-            <label>Fixed batch (pax tier)</label>
-            <select value={form.pax_tier} onChange={(e) => set('pax_tier', e.target.value)}>
-              {PAX_TIERS.map((p) => (
-                <option key={p} value={p}>
-                  {p} pax
-                </option>
+          {recipe.tiers?.length ? (
+            <div className="field">
+              <label>Menu prices (₱ — as finalized on the Tanawin Menu)</label>
+              {recipe.tiers.map((t, i) => (
+                <div className="tier-price-row" key={t.label}>
+                  <span>{t.label}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    min="0"
+                    value={form.tierPrices[i] ?? ''}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        tierPrices: f.tierPrices.map((p, j) => (j === i ? e.target.value : p)),
+                      }))
+                    }
+                    placeholder="—"
+                  />
+                </div>
               ))}
-            </select>
-          </div>
+            </div>
+          ) : (
+            <div className="field">
+              <label>Servings per batch</label>
+              <select value={form.pax_tier} onChange={(e) => set('pax_tier', e.target.value)}>
+                {PAX_TIERS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="field">
             <label>Available on the menu?</label>
             <select

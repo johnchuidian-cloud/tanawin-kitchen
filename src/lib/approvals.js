@@ -71,6 +71,32 @@ export async function applyIngredientsDirect(recipe, lines, actorId) {
   })
 }
 
+// Staff path: queue a costing-grid change (peso lines per tier) for approval.
+export async function submitCostingEdit(recipe, costLines, before, summary, actorId) {
+  const { error } = await supabase.from('approvals').insert({
+    change_type: 'recipe_costing',
+    summary,
+    payload: { kind: 'recipe_costing', recipeId: recipe.id, recipeName: recipe.name, costLines, before },
+    status: 'pending',
+    requested_by: actorId,
+  })
+  if (error) throw error
+  await logActivity(`Costing change requested — ${recipe.name}`, actorId, {
+    type: 'recipe_costing_request',
+    recipe_id: recipe.id,
+  })
+}
+
+// Admin path: apply a costing-grid change straight away.
+export async function applyCostingDirect(recipe, costLines, actorId) {
+  const { error } = await supabase.from('recipes').update({ cost_lines: costLines }).eq('id', recipe.id)
+  if (error) throw error
+  await logActivity(`Costing updated — ${recipe.name}`, actorId, {
+    type: 'recipe_costing_update',
+    recipe_id: recipe.id,
+  })
+}
+
 // Staff path: queue a purchase/restock for approval.
 export async function submitPurchase(purchase, summary, actorId) {
   const { error } = await supabase.from('approvals').insert({
@@ -109,6 +135,14 @@ async function applyApproval(approval) {
   }
   if (p?.kind === 'purchase') {
     await applyPurchase(p)
+    return
+  }
+  if (p?.kind === 'recipe_costing') {
+    const { error } = await supabase
+      .from('recipes')
+      .update({ cost_lines: p.costLines })
+      .eq('id', p.recipeId)
+    if (error) throw error
     return
   }
   throw new Error('Unknown change type — cannot apply automatically.')

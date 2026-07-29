@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { fetchRecipe, recalcRecipe, computeCost, lineCost, peso, youTubeId } from '../lib/recipes.js'
+import {
+  fetchRecipe,
+  recalcRecipe,
+  computeCost,
+  computedTierCosts,
+  costsStale,
+  lineCost,
+  tierColumnSum,
+  peso,
+  youTubeId,
+} from '../lib/recipes.js'
 import { fmtQty, shortUnit } from '../lib/inventory.js'
 
 export default function RecipeDetail() {
@@ -23,19 +33,23 @@ export default function RecipeDetail() {
     }
   }, [id])
 
-  const lines = recipe?.lines ?? []
-  const hasLines = lines.length > 0
+  const qtyLines = recipe?.lines ?? []
+  const costLines = recipe?.cost_lines ?? []
+  const tiers = recipe?.tiers ?? []
+  const hasGrid = costLines.length > 0
+  const hasQty = qtyLines.length > 0
   const canEdit = role === 'admin' || role === 'staff'
+  const stale = recipe ? costsStale(recipe) : false
+  const ytid = youTubeId(recipe?.video_url)
 
   const handleRecalc = async () => {
-    if (!hasLines) return
     setBusy(true)
     setMsg('')
     setError('')
     try {
-      const { costPerServing, menuPrice } = await recalcRecipe(recipe, lines, currentUser.id)
-      setRecipe((r) => ({ ...r, cost_per_serving: costPerServing, menu_price: menuPrice }))
-      setMsg(`Recalculated — ${peso(costPerServing)}/serving, menu price ${peso(menuPrice)}.`)
+      const newTiers = await recalcRecipe(recipe, currentUser.id)
+      setRecipe((r) => ({ ...r, tiers: newTiers }))
+      setMsg('Recalculated — tier costs updated. Prices are untouched (always hand-set).')
     } catch (err) {
       setError(err.message || 'Could not recalculate. Try again.')
     } finally {
@@ -43,7 +57,7 @@ export default function RecipeDetail() {
     }
   }
 
-  if (error) {
+  if (error && !recipe) {
     return (
       <>
         <button className="link-btn" onClick={() => navigate('/recipes')}>← Recipes</button>
@@ -61,11 +75,7 @@ export default function RecipeDetail() {
     )
   }
 
-  const computed = hasLines ? computeCost(recipe, lines) : null
-  const batchTotal = computed?.batchTotal ?? 0
-  const ytid = youTubeId(recipe.video_url)
-  // Breakdown implies a different cost than what's stored → nudge to recalc.
-  const costStale = computed && Math.abs(computed.costPerServing - Number(recipe.cost_per_serving)) > 0.005
+  const batchTotal = hasQty ? computeCost(recipe, qtyLines).batchTotal : 0
 
   return (
     <>
@@ -73,8 +83,11 @@ export default function RecipeDetail() {
 
       <h2 className="title">{recipe.name}</h2>
       <div className="muted">
-        {recipe.category} · Fixed batch: {recipe.pax_tier} pax
+        {recipe.category}
+        {!recipe.is_available ? ' · not on the menu' : ''}
       </div>
+
+      {error ? <div className="error" style={{ marginTop: 10 }}>{error}</div> : null}
 
       {recipe.image_url ? (
         <img
@@ -85,47 +98,103 @@ export default function RecipeDetail() {
         />
       ) : null}
 
-      <div className="recipe-cost">
-        <div>
-          <div className="cost-lbl">Cost / serving</div>
-          <div className="big">{peso(recipe.cost_per_serving)}</div>
+      {/* Sizes: cost vs hand-set menu price, with the resulting markup */}
+      {tiers.length ? (
+        <div className="card tier-table-wrap" style={{ marginTop: 12 }}>
+          <table className="tier-table">
+            <thead>
+              <tr>
+                <th>Size</th>
+                <th>Cost</th>
+                <th>Menu price</th>
+                <th>Markup</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tiers.map((t) => (
+                <tr key={t.label}>
+                  <td>{t.label}</td>
+                  <td>{t.cost == null ? '—' : peso(t.cost)}</td>
+                  <td className="price">{t.price == null ? '—' : peso(t.price)}</td>
+                  <td className="muted-cell">
+                    {t.cost && t.price ? `×${(t.price / t.cost).toFixed(1)}` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div className="cost-lbl">Menu price ×3</div>
-          <div className="big">{peso(recipe.menu_price)}</div>
-        </div>
-      </div>
+      ) : (
+        <div className="placeholder">No sizes or prices set yet — use Edit recipe.</div>
+      )}
 
       {msg ? <div className="success">{msg}</div> : null}
 
-      <div className="section-label">Ingredients (fixed batch)</div>
-      {hasLines ? (
-        <div className="card">
-          {lines.map((l) => (
-            <div className="ing-line" key={l.id}>
-              <span>
-                {l.ingredient?.name ?? 'Unknown'} — {fmtQty(l.quantity)} {shortUnit(l.unit)}
-              </span>
-              <span className="c">{peso(lineCost(l))}</span>
-            </div>
-          ))}
-          <div className="ing-line" style={{ fontWeight: 700 }}>
-            <span>Batch total ({recipe.pax_tier} pax)</span>
-            <span>{peso(batchTotal)}</span>
-          </div>
-        </div>
-      ) : (
-        <div className="placeholder">
-          No ingredients linked yet. Tap "Edit ingredients" to add them and enable the cost breakdown.
-        </div>
-      )}
-
-      {costStale ? (
+      {stale ? (
         <div className="note" style={{ marginTop: 0, marginBottom: 6 }}>
-          ⚠️ The breakdown works out to {peso(computed.costPerServing)}/serving, but the stored
-          cost is {peso(recipe.cost_per_serving)}. Tap Recalculate to update it.
+          ⚠️ The costing below doesn't match the stored tier costs. Tap Recalculate to update them.
         </div>
       ) : null}
+
+      {/* Costing: Lexi's peso grid, or quantity-based breakdown (crepes) */}
+      {hasGrid ? (
+        <>
+          <div className="section-label">Costing (per size)</div>
+          <div className="card cost-grid-wrap">
+            <table className="cost-grid readonly">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  {tiers.map((t) => (
+                    <th key={t.label}>{t.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {costLines.map((l, i) => (
+                  <tr key={i}>
+                    <td>{l.name}</td>
+                    {tiers.map((t, ti) => (
+                      <td key={t.label}>{peso(l.costs?.[ti] ?? 0)}</td>
+                    ))}
+                  </tr>
+                ))}
+                <tr className="grid-total">
+                  <td>Total</td>
+                  {tiers.map((t, ti) => (
+                    <td key={t.label}>{peso(tierColumnSum(costLines, ti))}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : hasQty ? (
+        <>
+          <div className="section-label">
+            Ingredients (batch of {recipe.pax_tier || 1})
+          </div>
+          <div className="card">
+            {qtyLines.map((l) => (
+              <div className="ing-line" key={l.id}>
+                <span>
+                  {l.ingredient?.name ?? 'Unknown'} — {fmtQty(l.quantity)} {shortUnit(l.unit)}
+                </span>
+                <span className="c">{peso(lineCost(l))}</span>
+              </div>
+            ))}
+            <div className="ing-line" style={{ fontWeight: 700 }}>
+              <span>Batch total</span>
+              <span>{peso(batchTotal)}</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="placeholder">
+          No costing yet — add Lexi-style peso lines via "Edit costing", or ingredient quantities
+          via "Edit ingredients".
+        </div>
+      )}
 
       {ytid ? (
         <>
@@ -181,21 +250,28 @@ export default function RecipeDetail() {
           <button
             className="btn ghost"
             onClick={handleRecalc}
-            disabled={busy || !hasLines}
-            title={hasLines ? '' : 'Add ingredients first'}
+            disabled={busy || (!hasGrid && !hasQty)}
+            title={hasGrid || hasQty ? '' : 'Add costing first'}
           >
-            ↻ {busy ? 'Recalculating…' : 'Recalculate cost'}
+            ↻ {busy ? 'Recalculating…' : 'Recalculate costs'}
           </button>
-          <button className="btn ghost" onClick={() => navigate(`/recipes/${recipe.id}/ingredients`)}>
-            Edit ingredients
-          </button>
+          {hasGrid || !hasQty ? (
+            <button className="btn ghost" onClick={() => navigate(`/recipes/${recipe.id}/costing`)}>
+              Edit costing
+            </button>
+          ) : null}
+          {hasQty || !hasGrid ? (
+            <button className="btn ghost" onClick={() => navigate(`/recipes/${recipe.id}/ingredients`)}>
+              Edit ingredients
+            </button>
+          ) : null}
           <button className="btn" onClick={() => navigate(`/recipes/${recipe.id}/edit`)}>
             Edit recipe
           </button>
           <div className="note">
-            {role === 'admin'
-              ? 'Editing applies your changes directly. Recalculate only runs when you tap it — costs never shift on their own.'
-              : 'Editing a recipe routes to Lexi for approval. Recalculate only runs when you tap it — costs never shift on their own.'}
+            Prices mirror the Tanawin Menu and only change by hand (via Edit recipe
+            {role === 'admin' ? '' : ', with Lexi\'s approval'}). Recalculate only runs when you tap
+            it — costs never shift on their own.
           </div>
         </>
       ) : (

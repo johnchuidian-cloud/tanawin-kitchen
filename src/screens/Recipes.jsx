@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchRecipes, peso } from '../lib/recipes.js'
+import { fetchRecipes, priceRange } from '../lib/recipes.js'
 
 export default function Recipes() {
   const navigate = useNavigate()
@@ -47,12 +47,16 @@ export default function Recipes() {
                   <div className="info">
                     <div className="n">{r.name}</div>
                     <div className="m">
-                      {r.category} · {r.pax_tier} pax batch
+                      {r.category}
+                      {(r.tiers ?? []).length
+                        ? ` · ${r.tiers.map((t) => t.label).join(' / ')}`
+                        : ''}
+                      {!r.is_available ? ' · not on menu' : ''}
                     </div>
                   </div>
                   <div className="qty">
-                    {peso(r.menu_price)}
-                    <small>per serving</small>
+                    {priceRange(r.tiers)}
+                    <small>menu price</small>
                   </div>
                 </button>
               ))}

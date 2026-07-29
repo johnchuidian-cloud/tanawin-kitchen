@@ -236,6 +236,46 @@ h2.title{font-size:20px;color:var(--terra);margin-bottom:3px;font-weight:700}
   padding:2px 4px;line-height:1;
 }
 
+/* ---- tier table (sizes: cost / hand-set price / markup) ---- */
+.tier-table-wrap{padding:6px 14px;overflow-x:auto}
+.tier-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.tier-table th{
+  text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--ink-soft);font-weight:700;padding:8px 8px 6px 2px;border-bottom:1px solid var(--line);
+}
+.tier-table td{padding:9px 8px 9px 2px;border-bottom:1px dashed var(--line)}
+.tier-table tr:last-child td{border-bottom:none}
+.tier-table .price{font-weight:800;color:var(--terra)}
+.tier-table .muted-cell{color:var(--ink-soft);font-size:12px}
+
+/* ---- costing grid (peso lines × tiers) ---- */
+.cost-grid-wrap{overflow-x:auto}
+.cost-grid{width:100%;border-collapse:collapse;font-size:13px}
+.cost-grid th{
+  text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--ink-soft);font-weight:700;padding:6px 6px 6px 2px;border-bottom:1px solid var(--line);
+}
+.cost-grid td{padding:6px 6px 6px 2px;border-bottom:1px dashed var(--line)}
+.cost-grid input{
+  width:100%;min-width:64px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;
+  font-size:13px;font-family:inherit;background:#fff;color:var(--ink);
+}
+.cost-grid td:first-child input{min-width:110px}
+.cost-grid input:focus{outline:none;border-color:var(--terra-light)}
+.cost-grid input[type=number]{text-align:right}
+.cost-grid.readonly td{padding:8px 6px 8px 2px}
+.cost-grid .grid-total td{font-weight:700;border-bottom:none;border-top:1px solid var(--line)}
+.cost-grid .rm{background:none;border:none;color:var(--terra);font-size:14px;cursor:pointer;padding:2px}
+
+/* ---- per-tier price editing (Edit recipe) ---- */
+.tier-price-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.tier-price-row span{flex:1;font-size:13px;font-weight:600}
+.tier-price-row input{
+  width:110px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;
+  font-size:14px;font-family:inherit;background:#fff;color:var(--ink);text-align:right;
+}
+.tier-price-row input:focus{outline:none;border-color:var(--terra-light)}
+
 /* ---- recipe cost breakdown ---- */
 .recipe-cost{
   background:var(--cream-2);border-radius:12px;padding:13px;margin:12px 0;

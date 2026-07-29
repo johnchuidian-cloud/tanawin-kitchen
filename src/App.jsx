@@ -11,6 +11,7 @@ import Recipes from './screens/Recipes.jsx'
 import RecipeDetail from './screens/RecipeDetail.jsx'
 import RecipeEdit from './screens/RecipeEdit.jsx'
 import RecipeIngredientsEdit from './screens/RecipeIngredientsEdit.jsx'
+import RecipeCostingEdit from './screens/RecipeCostingEdit.jsx'
 import Approvals from './screens/Approvals.jsx'
 import Purchases from './screens/Purchases.jsx'
 import Suppliers from './screens/Suppliers.jsx'
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/recipes/:id" element={<RecipeDetail />} />
           <Route path="/recipes/:id/edit" element={<RecipeEdit />} />
           <Route path="/recipes/:id/ingredients" element={<RecipeIngredientsEdit />} />
+          <Route path="/recipes/:id/costing" element={<RecipeCostingEdit />} />
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/waste" element={<WasteLog />} />

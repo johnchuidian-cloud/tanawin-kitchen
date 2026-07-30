@@ -32,6 +32,32 @@ export function fmtQty(n) {
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
+// Common stocking units, for the add-item picker.
+export const UNITS = ['kg', 'g', 'L', 'ml', 'pieces', 'packs', 'bottle', 'box', 'can', 'carton', 'gallon', 'stick', 'tub']
+
+// Add a new stock item to the catalog. Staff AND admin may do this directly
+// (per Lexi/John): a new item starts at qty 0 / cost ₱0, so it has no
+// financial impact — counts and purchases still follow their own rules.
+export async function addIngredient({ name, unit, minThreshold }, actorId) {
+  const { data, error } = await supabase
+    .from('ingredients')
+    .insert({
+      name: name.trim(),
+      unit,
+      quantity: 0,
+      min_threshold: Number(minThreshold) || 0,
+      cost_per_unit: 0,
+    })
+    .select('id, name, unit, quantity, min_threshold, cost_per_unit, supplier:suppliers(name)')
+    .single()
+  if (error) throw error
+  await logActivity(`Stock item added — ${data.name} (${unit})`, actorId, {
+    type: 'ingredient_add',
+    ingredient_id: data.id,
+  })
+  return data
+}
+
 // Record a physical stock recount: set the ingredient's quantity to the
 // counted value and log it to the audit trail. Staff may do this directly —
 // no approval needed (it's an observation, not a structural/cost change).

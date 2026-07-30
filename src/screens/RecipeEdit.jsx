@@ -28,6 +28,7 @@ export default function RecipeEdit() {
           pax_tier: r.pax_tier ?? 2,
           is_available: !!r.is_available,
           prep_instructions: r.prep_instructions ?? '',
+          meal_tag: r.meal_tag ?? '',
           video_url: r.video_url ?? '',
           image_url: r.image_url ?? '',
           links: (r.links ?? []).join('\n'),
@@ -56,6 +57,7 @@ export default function RecipeEdit() {
       ['pax_tier', recipe.pax_tier, Number(form.pax_tier)],
       ['is_available', !!recipe.is_available, !!form.is_available],
       ['prep_instructions', recipe.prep_instructions ?? '', form.prep_instructions.trim()],
+      ['meal_tag', recipe.meal_tag ?? null, form.meal_tag || null],
       ['video_url', recipe.video_url ?? '', form.video_url.trim()],
       ['image_url', recipe.image_url ?? '', form.image_url.trim()],
       ['links', JSON.stringify(recipe.links ?? []), JSON.stringify(formLinks)],
@@ -197,6 +199,15 @@ export default function RecipeEdit() {
               </select>
             </div>
           )}
+          <div className="field">
+            <label>Meal</label>
+            <select value={form.meal_tag} onChange={(e) => set('meal_tag', e.target.value)}>
+              <option value="">— not set —</option>
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch_dinner">Lunch/Dinner</option>
+              <option value="both">Both (breakfast + lunch/dinner)</option>
+            </select>
+          </div>
           <div className="field">
             <label>Available on the menu?</label>
             <select

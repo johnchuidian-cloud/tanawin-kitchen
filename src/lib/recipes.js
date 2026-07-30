@@ -29,11 +29,15 @@ export const RECIPE_EDIT_FIELDS = [
   { key: 'video_url', label: 'Video', type: 'url' },
   { key: 'image_url', label: 'Image', type: 'url' },
   { key: 'links', label: 'Links', type: 'list' },
+  { key: 'meal_tag', label: 'Meal', type: 'meal' },
   { key: 'tiers', label: 'Prices', type: 'tiers' },
 ]
 
+export const MEAL_LABELS = { breakfast: 'Breakfast', lunch_dinner: 'Lunch/Dinner', both: 'Breakfast + Lunch/Dinner' }
+
 function fmtFieldVal(field, v) {
   if (field?.type === 'bool') return v ? 'Yes' : 'No'
+  if (field?.type === 'meal') return MEAL_LABELS[v] ?? '—'
   if (field?.type === 'list') return `${Array.isArray(v) ? v.length : 0} link(s)`
   if (v === null || v === undefined || v === '') return '—'
   if (field?.type === 'url') {
@@ -96,7 +100,7 @@ export function priceRange(tiers) {
 export async function fetchRecipes() {
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, name, category, pax_tier, tiers, is_available')
+    .select('id, name, category, pax_tier, tiers, is_available, meal_tag')
     .order('category')
     .order('name')
   if (error) throw error
@@ -109,7 +113,7 @@ export async function fetchRecipe(id) {
   const { data, error } = await supabase
     .from('recipes')
     .select(
-      'id, name, category, pax_tier, tiers, cost_lines, prep_instructions, is_available, ' +
+      'id, name, category, pax_tier, tiers, cost_lines, prep_instructions, is_available, meal_tag, ' +
         'video_url, image_url, links, ' +
         'lines:recipe_ingredients(id, ingredient_id, quantity, unit, ingredient:ingredients(name, unit, cost_per_unit))'
     )

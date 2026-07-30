@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchRecipes, priceRange } from '../lib/recipes.js'
 
+const MEAL_SHORT = { breakfast: '🌅 Breakfast', lunch_dinner: '🌇 Lunch/Dinner', both: '☀️ All day' }
+
 export default function Recipes() {
   const navigate = useNavigate()
   const [recipes, setRecipes] = useState(null)
@@ -51,6 +53,7 @@ export default function Recipes() {
                       {(r.tiers ?? []).length
                         ? ` · ${r.tiers.map((t) => t.label).join(' / ')}`
                         : ''}
+                      {r.meal_tag ? ` · ${MEAL_SHORT[r.meal_tag] ?? r.meal_tag}` : ''}
                       {!r.is_available ? ' · not on menu' : ''}
                     </div>
                   </div>

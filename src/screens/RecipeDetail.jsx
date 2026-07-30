@@ -84,6 +84,9 @@ export default function RecipeDetail() {
       <h2 className="title">{recipe.name}</h2>
       <div className="muted">
         {recipe.category}
+        {recipe.meal_tag
+          ? ` · ${{ breakfast: 'Breakfast', lunch_dinner: 'Lunch/Dinner', both: 'Breakfast + Lunch/Dinner' }[recipe.meal_tag] ?? recipe.meal_tag}`
+          : ''}
         {!recipe.is_available ? ' · not on the menu' : ''}
       </div>
 

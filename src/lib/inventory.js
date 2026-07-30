@@ -1,14 +1,58 @@
 import { supabase } from './supabase.js'
 import { logActivity } from './activity.js'
 
+// Which meal a stock item is mainly used for. Loose grouping for the team —
+// nothing enforces it.
+export const MEAL_TAGS = [
+  { key: 'breakfast', label: 'Breakfast', short: '🌅 Breakfast' },
+  { key: 'lunch_dinner', label: 'Lunch/Dinner', short: '🍽️ Lunch/Dinner' },
+  { key: 'both', label: 'Both', short: '🌅🍽️ Both' },
+]
+export const mealShort = (tag) => MEAL_TAGS.find((m) => m.key === tag)?.short ?? null
+
+const INGREDIENT_COLS =
+  'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, supplier:suppliers(name)'
+
 // Read all ingredients with their supplier name (if linked), sorted by name.
 export async function fetchIngredients() {
   const { data, error } = await supabase
     .from('ingredients')
-    .select('id, name, unit, quantity, min_threshold, cost_per_unit, supplier:suppliers(name)')
+    .select(INGREDIENT_COLS)
     .order('name')
   if (error) throw error
   return data ?? []
+}
+
+// Edit a stock item: name, unit, reorder level, meal tag. NOTE: changing the
+// unit does NOT convert the on-hand quantity or the cost-per-unit — the UI
+// warns about this, since only a human knows whether "2" kg meant "2000" g.
+export async function updateIngredient(ingredient, fields, actorId) {
+  const patch = {
+    name: fields.name.trim(),
+    unit: fields.unit,
+    min_threshold: fields.minThreshold === '' ? 0 : Number(fields.minThreshold),
+    meal_tag: fields.mealTag || null,
+  }
+  const { data, error } = await supabase
+    .from('ingredients')
+    .update(patch)
+    .eq('id', ingredient.id)
+    .select(INGREDIENT_COLS)
+    .single()
+  if (error) throw error
+  const bits = []
+  if (patch.name !== ingredient.name) bits.push(`renamed from ${ingredient.name}`)
+  if (patch.unit !== ingredient.unit) bits.push(`unit ${ingredient.unit} → ${patch.unit}`)
+  if (Number(patch.min_threshold) !== Number(ingredient.min_threshold))
+    bits.push(`min ${ingredient.min_threshold} → ${patch.min_threshold}`)
+  if ((patch.meal_tag ?? null) !== (ingredient.meal_tag ?? null))
+    bits.push(`meal ${patch.meal_tag ?? 'none'}`)
+  await logActivity(
+    `Stock item updated — ${patch.name}${bits.length ? ` (${bits.join('; ')})` : ''}`,
+    actorId,
+    { type: 'ingredient_update', ingredient_id: ingredient.id }
+  )
+  return data
 }
 
 // Stock status vs. the ingredient's min_threshold:
@@ -38,7 +82,7 @@ export const UNITS = ['kg', 'g', 'L', 'ml', 'pieces', 'packs', 'bottle', 'box', 
 // Add a new stock item to the catalog. Staff AND admin may do this directly
 // (per Lexi/John): a new item starts at qty 0 / cost ₱0, so it has no
 // financial impact — counts and purchases still follow their own rules.
-export async function addIngredient({ name, unit, minThreshold }, actorId) {
+export async function addIngredient({ name, unit, minThreshold, mealTag }, actorId) {
   const { data, error } = await supabase
     .from('ingredients')
     .insert({
@@ -47,8 +91,9 @@ export async function addIngredient({ name, unit, minThreshold }, actorId) {
       quantity: 0,
       min_threshold: Number(minThreshold) || 0,
       cost_per_unit: 0,
+      meal_tag: mealTag || null,
     })
-    .select('id, name, unit, quantity, min_threshold, cost_per_unit, supplier:suppliers(name)')
+    .select(INGREDIENT_COLS)
     .single()
   if (error) throw error
   await logActivity(`Stock item added — ${data.name} (${unit})`, actorId, {

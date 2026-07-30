@@ -27,10 +27,16 @@ export default function AppBar() {
         <div className="sub">Kitchen</div>
       </div>
 
-      {role === 'admin' ? (
+      {role === 'admin' || role === 'staff' ? (
+        // Role-aware launcher: staff get the staff hub (no Payroll — that's
+        // Lexi-only); guests get no pill at all.
         <a
           className="hub-link"
-          href="https://tanawin-hub.tanawinbnb.workers.dev/"
+          href={
+            role === 'admin'
+              ? 'https://tanawin-hub.tanawinbnb.workers.dev/'
+              : 'https://tanawin-hub.tanawinbnb.workers.dev/staff'
+          }
           title="Back to the Tanawin Hub"
         >
           ⌂ Hub

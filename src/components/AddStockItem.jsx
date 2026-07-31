@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { addIngredient, learnAlias, UNITS, MEAL_TAGS, shortUnit } from '../lib/inventory.js'
 import { findExisting, englishSuggestion } from '../lib/ingredient-match.js'
 
-const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '' }
+const BLANK = { name: '', unit: 'kg', quantity: '', minThreshold: '', mealTag: '' }
 
 /**
  * Add a stock item from anywhere — the Inventory page or straight out of an
@@ -128,6 +128,18 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
         </select>
       </div>
       <div className="field">
+        <label>Stock on hand now (optional)</label>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="any"
+          min="0"
+          value={form.quantity}
+          onChange={(e) => set('quantity', e.target.value)}
+          placeholder={`how many ${shortUnit(form.unit)} you have right now`}
+        />
+      </div>
+      <div className="field">
         <label>Reorder below (optional)</label>
         <input
           type="number"
@@ -160,8 +172,8 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
         Cancel
       </button>
       <div className="note">
-        New items start at 0 stock and ₱0 cost — use Count Stock for the on-hand amount, and cost
-        fills in from purchases.
+        Leave stock blank to start at 0 — you can always Count Stock later. Cost fills in from
+        purchases.
       </div>
     </div>
   )

@@ -10,6 +10,7 @@ import {
 } from '../lib/finance.js'
 import { applyPurchaseDirect, submitPurchase } from '../lib/approvals.js'
 import { fmtQty, shortUnit } from '../lib/inventory.js'
+import { convertHint, needsCheck } from '../lib/units.js'
 import { peso } from '../lib/recipes.js'
 
 function shortDate(iso) {
@@ -26,6 +27,7 @@ export default function FinanceImport({ ingredients, direct, currentUser, onChan
   const [entries, setEntries] = useState(null)
   const [maps, setMaps] = useState({}) // itemKey -> ingredient uuid | null ("not an ingredient")
   const [choice, setChoice] = useState({}) // financeEntryId -> ingredientId
+  const [qtyBy, setQtyBy] = useState({}) // financeEntryId -> quantity in the KITCHEN's unit
   const [query, setQuery] = useState('')
   const [openDates, setOpenDates] = useState(() => new Set())
   const [skippedOpen, setSkippedOpen] = useState(false)
@@ -101,10 +103,16 @@ export default function FinanceImport({ ingredients, direct, currentUser, onChan
     setBusyId(entry.id)
     setError('')
     setMsg('')
+    const qty = Number(qtyBy[entry.id] ?? entry.qty)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setError('Enter how much this is, in the kitchen unit, before importing.')
+      setBusyId(null)
+      return
+    }
     const purchase = {
       ingredientId: ing.id,
       supplierId: null,
-      quantity: Number(entry.qty),
+      quantity: qty,
       totalCost: Number(entry.total),
       ingredientName: ing.name,
       supplierName: entry.vendor,
@@ -112,7 +120,7 @@ export default function FinanceImport({ ingredients, direct, currentUser, onChan
       source: 'finance_pull',
     }
     const summary =
-      `Restock (from Finance) — ${ing.name} +${fmtQty(entry.qty)} ${shortUnit(ing.unit)} for ${peso(entry.total)}` +
+      `Restock (from Finance) — ${ing.name} +${fmtQty(qty)} ${shortUnit(ing.unit)} for ${peso(entry.total)}` +
       (entry.vendor ? ` from ${entry.vendor}` : '')
     try {
       if (direct) await applyPurchaseDirect(purchase, currentUser.id)
@@ -308,6 +316,52 @@ export default function FinanceImport({ ingredients, direct, currentUser, onChan
                               ))}
                             </select>
                           </div>
+
+                          {/* Finance's number has no unit — confirm it in the
+                              kitchen's unit so kg never lands in "packs". */}
+                          {(() => {
+                            const ing = ingredients.find((i) => i.id === choice[e.id])
+                            if (!ing) return null
+                            const qty = qtyBy[e.id] ?? String(e.qty)
+                            const hint = convertHint(e.qty, ing.unit)
+                            const unitCost = Number(qty) > 0 ? Number(e.total) / Number(qty) : null
+                            return (
+                              <div className="qty-confirm">
+                                <label>How much is this, in {shortUnit(ing.unit)}?</label>
+                                <div className="qty-confirm-row">
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    min="0"
+                                    value={qty}
+                                    onChange={(ev) =>
+                                      setQtyBy((q) => ({ ...q, [e.id]: ev.target.value }))
+                                    }
+                                  />
+                                  <span className="qc-unit">{shortUnit(ing.unit)}</span>
+                                  {hint ? (
+                                    <button
+                                      type="button"
+                                      className="mini-btn"
+                                      onClick={() =>
+                                        setQtyBy((q) => ({ ...q, [e.id]: String(hint.value) }))
+                                      }
+                                    >
+                                      {hint.label}
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <div className="qc-note">
+                                  Finance recorded <b>{fmtQty(e.qty)}</b> (no unit)
+                                  {unitCost ? ` · works out to ${peso(unitCost)}/${shortUnit(ing.unit)}` : ''}
+                                  {needsCheck(ing.unit)
+                                    ? ` · ${ing.name} is counted in ${shortUnit(ing.unit)} — double-check this isn't a weight.`
+                                    : ''}
+                                </div>
+                              </div>
+                            )
+                          })()}
 
                           <div className="appr-actions">
                             <button

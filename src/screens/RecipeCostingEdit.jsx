@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { fetchRecipe, peso, tierColumnSum } from '../lib/recipes.js'
+import { UNITS, shortUnit } from '../lib/inventory.js'
 import { submitCostingEdit, applyCostingDirect } from '../lib/approvals.js'
 
 // Editor for Lexi's costing grid: ingredient rows × tier columns, in pesos —
@@ -26,6 +27,8 @@ export default function RecipeCostingEdit() {
         setLines(
           (r.cost_lines ?? []).map((l) => ({
             name: l.name,
+            unit: l.unit ?? '',
+            qty: (r.tiers ?? [{}]).map((_, i) => String(l.qty?.[i] ?? '')),
             costs: (r.tiers ?? [{}]).map((_, i) => String(l.costs?.[i] ?? '')),
           }))
         )
@@ -43,13 +46,27 @@ export default function RecipeCostingEdit() {
     setLines((ls) =>
       ls.map((l, i) => (i === idx ? { ...l, costs: l.costs.map((c, j) => (j === ti ? v : c)) } : l))
     )
-  const addLine = () => setLines((ls) => [...ls, { name: '', costs: tiers.map(() => '') }])
+  const setQty = (idx, ti, v) =>
+    setLines((ls) =>
+      ls.map((l, i) => (i === idx ? { ...l, qty: l.qty.map((q, j) => (j === ti ? v : q)) } : l))
+    )
+  const setUnit = (idx, v) => setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, unit: v } : l)))
+  const addLine = () =>
+    setLines((ls) => [...ls, { name: '', unit: '', qty: tiers.map(() => ''), costs: tiers.map(() => '') }])
   const removeLine = (idx) => setLines((ls) => ls.filter((_, i) => i !== idx))
 
-  const parsed = (lines ?? []).map((l) => ({
-    name: l.name.trim(),
-    costs: l.costs.map((c) => (c === '' ? 0 : Number(c))),
-  }))
+  const parsed = (lines ?? []).map((l) => {
+    const out = {
+      name: l.name.trim(),
+      costs: l.costs.map((c) => (c === '' ? 0 : Number(c))),
+    }
+    const hasQty = (l.qty ?? []).some((q) => q !== '' && q != null)
+    if (hasQty) {
+      out.qty = l.qty.map((q) => (q === '' ? null : Number(q)))
+      if (l.unit) out.unit = l.unit
+    }
+    return out
+  })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -120,7 +137,7 @@ export default function RecipeCostingEdit() {
       <button className="link-btn" onClick={() => navigate(`/recipes/${id}`)}>← {recipe.name}</button>
       <h2 className="title">Edit costing</h2>
       <div className="muted">
-        Peso cost per line, per size — gas and overheads count too.{' '}
+        How much to use and what it costs, per size — gas and overheads count too.{' '}
         {role === 'admin' ? 'Changes apply immediately.' : 'Changes go to Lexi for approval.'}
       </div>
 
@@ -153,9 +170,32 @@ export default function RecipeCostingEdit() {
                         onChange={(e) => setName(idx, e.target.value)}
                         placeholder="e.g. Beef shank"
                       />
+                      <select
+                        className="line-unit"
+                        value={l.unit}
+                        onChange={(e) => setUnit(idx, e.target.value)}
+                      >
+                        <option value="">no unit</option>
+                        {UNITS.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     {tiers.map((t, ti) => (
                       <td key={t.label}>
+                        {/* How much to use, then what it costs */}
+                        <input
+                          className="qty-cell"
+                          type="number"
+                          inputMode="decimal"
+                          step="any"
+                          min="0"
+                          value={l.qty?.[ti] ?? ''}
+                          onChange={(e) => setQty(idx, ti, e.target.value)}
+                          placeholder={l.unit ? shortUnit(l.unit) : 'qty'}
+                        />
                         <input
                           type="number"
                           inputMode="decimal"
@@ -163,7 +203,7 @@ export default function RecipeCostingEdit() {
                           min="0"
                           value={l.costs[ti]}
                           onChange={(e) => setCost(idx, ti, e.target.value)}
-                          placeholder="0"
+                          placeholder="₱0"
                         />
                       </td>
                     ))}

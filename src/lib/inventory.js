@@ -112,13 +112,14 @@ export const UNITS = ['kg', 'g', 'L', 'ml', 'pieces', 'packs', 'bottle', 'box', 
 // Add a new stock item to the catalog. Staff AND admin may do this directly
 // (per Lexi/John): a new item starts at qty 0 / cost ₱0, so it has no
 // financial impact — counts and purchases still follow their own rules.
-export async function addIngredient({ name, unit, minThreshold, mealTag }, actorId) {
+export async function addIngredient({ name, unit, minThreshold, mealTag, quantity }, actorId) {
+  const onHand = quantity === '' || quantity == null ? 0 : Number(quantity)
   const { data, error } = await supabase
     .from('ingredients')
     .insert({
       name: name.trim(),
       unit,
-      quantity: 0,
+      quantity: Number.isFinite(onHand) && onHand > 0 ? onHand : 0,
       min_threshold: Number(minThreshold) || 0,
       cost_per_unit: 0,
       meal_tag: mealTag || null,
@@ -126,10 +127,12 @@ export async function addIngredient({ name, unit, minThreshold, mealTag }, actor
     .select(INGREDIENT_COLS)
     .single()
   if (error) throw error
-  await logActivity(`Stock item added — ${data.name} (${unit})`, actorId, {
-    type: 'ingredient_add',
-    ingredient_id: data.id,
-  })
+  await logActivity(
+    `Stock item added — ${data.name} (${unit})` +
+      (data.quantity > 0 ? `, starting stock ${fmtQty(data.quantity)} ${shortUnit(unit)}` : ''),
+    actorId,
+    { type: 'ingredient_add', ingredient_id: data.id }
+  )
   return data
 }
 

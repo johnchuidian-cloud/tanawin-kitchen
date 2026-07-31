@@ -158,7 +158,14 @@ export default function RecipeDetail() {
                   <tr key={i}>
                     <td>{l.name}</td>
                     {tiers.map((t, ti) => (
-                      <td key={t.label}>{peso(l.costs?.[ti] ?? 0)}</td>
+                      <td key={t.label}>
+                        {l.qty?.[ti] != null ? (
+                          <span className="cell-qty">
+                            {fmtQty(l.qty[ti])} {l.unit ? shortUnit(l.unit) : ''}
+                          </span>
+                        ) : null}
+                        <span className="cell-cost">{peso(l.costs?.[ti] ?? 0)}</span>
+                      </td>
                     ))}
                   </tr>
                 ))}

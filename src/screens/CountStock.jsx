@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import IngredientSelect from '../components/IngredientSelect.jsx'
 import {
   fetchIngredients,
   saveStockCount,
@@ -84,24 +85,17 @@ export default function CountStock() {
 
       {items && items.length > 0 ? (
         <form className="card" style={{ marginTop: 14 }} onSubmit={handleSave}>
-          <div className="field">
-            <label>Ingredient</label>
-            <select
-              value={selectedId}
-              onChange={(e) => {
-                setSelectedId(e.target.value)
-                setQty('')
-                setSuccess('')
-                setError('')
-              }}
-            >
-              {items.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <IngredientSelect
+            items={items}
+            value={selectedId}
+            onItemsChanged={setItems}
+            onChange={(id) => {
+              setSelectedId(id)
+              setQty('')
+              setSuccess('')
+              setError('')
+            }}
+          />
 
           {selected ? (
             <div className="note" style={{ marginTop: 0, marginBottom: 13 }}>

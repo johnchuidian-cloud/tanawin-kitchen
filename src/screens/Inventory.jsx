@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import AddStockItem from '../components/AddStockItem.jsx'
 import {
   fetchIngredients,
-  addIngredient,
   updateIngredient,
   stockStatus,
   shortUnit,
@@ -14,7 +14,7 @@ import {
 } from '../lib/inventory.js'
 
 const DOT = { low: 'lowd', mid: 'mid', ok: 'ok' }
-const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '' }
+const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '' }
 
 export default function Inventory() {
   const navigate = useNavigate()
@@ -62,6 +62,7 @@ export default function Inventory() {
       unit: i.unit ?? 'kg',
       minThreshold: i.min_threshold == null ? '' : String(i.min_threshold),
       mealTag: i.meal_tag ?? '',
+      aliases: (i.aliases ?? []).join(', '),
     })
     setError('')
     setSuccess('')
@@ -78,35 +79,6 @@ export default function Inventory() {
     (items ?? []).find(
       (i) => i.id !== exceptId && i.name.trim().toLowerCase() === name.toLowerCase()
     )
-
-  const handleAdd = async (e) => {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
-    const name = form.name.trim()
-    if (!name) {
-      setError('The item needs a name.')
-      return
-    }
-    const dupe = dupeCheck(name, null)
-    if (dupe) {
-      setError(`"${dupe.name}" is already in the list — no need to add it again.`)
-      return
-    }
-    setSaving(true)
-    try {
-      const created = await addIngredient(form, currentUser.id)
-      setItems((prev) => [...(prev ?? []), created].sort((a, b) => a.name.localeCompare(b.name)))
-      setSuccess(
-        `Added ${created.name}. It starts at 0 ${shortUnit(created.unit)} — count or restock it to set stock.`
-      )
-      cancel()
-    } catch (err) {
-      setError(err.message || 'Could not add the item. Try again.')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const handleUpdate = async (e, ingredient) => {
     e.preventDefault()
@@ -188,6 +160,14 @@ export default function Inventory() {
             </option>
           ))}
         </select>
+      </div>
+      <div className="field">
+        <label>Also known as (comma separated)</label>
+        <input
+          value={form.aliases}
+          onChange={(e) => set('aliases', e.target.value)}
+          placeholder="e.g. sibuyas, onions"
+        />
       </div>
     </>
   )
@@ -287,19 +267,22 @@ export default function Inventory() {
 
           {canEdit ? (
             adding ? (
-              <form className="card" onSubmit={handleAdd}>
-                <Fields />
-                <button className="btn" type="submit" disabled={saving}>
-                  {saving ? 'Adding…' : 'Add item'}
-                </button>
-                <button type="button" className="btn ghost" onClick={cancel}>
-                  Cancel
-                </button>
-                <div className="note">
-                  New items start at 0 stock and ₱0 cost — use Count Stock for the on-hand amount,
-                  and cost fills in from purchases.
-                </div>
-              </form>
+              <div className="card">
+                <AddStockItem
+                  items={items}
+                  onAdded={(created) => {
+                    setItems((prev) =>
+                      (prev.some((i) => i.id === created.id)
+                        ? prev.map((i) => (i.id === created.id ? created : i))
+                        : [...prev, created]
+                      ).sort((a, b) => a.name.localeCompare(b.name))
+                    )
+                    setSuccess(`Saved — ${created.name}.`)
+                    cancel()
+                  }}
+                  onCancel={cancel}
+                />
+              </div>
             ) : (
               <>
                 <button className="btn ghost" onClick={startAdd}>

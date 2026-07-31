@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import IngredientSelect from '../components/IngredientSelect.jsx'
 import { fetchIngredients, shortUnit, fmtQty } from '../lib/inventory.js'
 import { fetchSuppliers } from '../lib/suppliers.js'
 import { fetchPurchases, undoPurchase } from '../lib/purchases.js'
@@ -221,16 +222,12 @@ export default function Purchases() {
             <div className="placeholder">No ingredients to restock yet.</div>
           ) : (
             <form className="card" onSubmit={handleSubmit}>
-              <div className="field">
-                <label>Ingredient</label>
-                <select value={ingredientId} onChange={(e) => setIngredientId(e.target.value)}>
-                  {ingredients.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <IngredientSelect
+                items={ingredients}
+                value={ingredientId}
+                onChange={setIngredientId}
+                onItemsChanged={setIngredients}
+              />
               <div className="field">
                 <label>Supplier</label>
                 <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>

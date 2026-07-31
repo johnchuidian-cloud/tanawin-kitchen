@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import IngredientSelect from '../components/IngredientSelect.jsx'
 import { fetchIngredients, fmtQty, shortUnit } from '../lib/inventory.js'
 import { fetchWaste, logWaste, WASTE_REASONS } from '../lib/waste.js'
 
@@ -118,16 +119,12 @@ export default function WasteLog() {
 
           {ingredients && ingredients.length > 0 ? (
             <form className="card" style={{ marginTop: 14 }} onSubmit={handleSubmit}>
-              <div className="field">
-                <label>Ingredient</label>
-                <select value={ingredientId} onChange={(e) => setIngredientId(e.target.value)}>
-                  {ingredients.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <IngredientSelect
+                items={ingredients}
+                value={ingredientId}
+                onChange={setIngredientId}
+                onItemsChanged={setIngredients}
+              />
               <div className="field">
                 <label>Quantity wasted{selected ? ` (${shortUnit(selected.unit)})` : ''}</label>
                 <input

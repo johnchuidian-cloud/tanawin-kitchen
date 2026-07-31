@@ -11,7 +11,33 @@ export const MEAL_TAGS = [
 export const mealShort = (tag) => MEAL_TAGS.find((m) => m.key === tag)?.short ?? null
 
 const INGREDIENT_COLS =
-  'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, supplier:suppliers(name)'
+  'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, aliases, supplier:suppliers(name)'
+
+// Teach an existing item another spelling ("sibuyas" → Onion) so nobody
+// creates a duplicate next time. Non-fatal: the action it accompanies has
+// already succeeded.
+export async function learnAlias(ingredient, spelling, actorId) {
+  const clean = (spelling || '').trim()
+  if (!clean) return ingredient
+  const existing = ingredient.aliases ?? []
+  if (existing.some((a) => a.toLowerCase() === clean.toLowerCase())) return ingredient
+  const aliases = [...existing, clean]
+  const { data, error } = await supabase
+    .from('ingredients')
+    .update({ aliases })
+    .eq('id', ingredient.id)
+    .select(INGREDIENT_COLS)
+    .single()
+  if (error) {
+    console.warn('Could not save alias:', error.message)
+    return ingredient
+  }
+  await logActivity(`Stock item alias added — "${clean}" → ${ingredient.name}`, actorId, {
+    type: 'ingredient_alias',
+    ingredient_id: ingredient.id,
+  })
+  return data
+}
 
 // Read all ingredients with their supplier name (if linked), sorted by name.
 export async function fetchIngredients() {
@@ -32,6 +58,10 @@ export async function updateIngredient(ingredient, fields, actorId) {
     unit: fields.unit,
     min_threshold: fields.minThreshold === '' ? 0 : Number(fields.minThreshold),
     meal_tag: fields.mealTag || null,
+    aliases: (fields.aliases ?? '')
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean),
   }
   const { data, error } = await supabase
     .from('ingredients')

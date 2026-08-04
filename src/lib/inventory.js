@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js'
 import { logActivity } from './activity.js'
+import { recordMovement } from './movements.js'
 
 // Which meal a stock item is mainly used for. Loose grouping for the team —
 // nothing enforces it.
@@ -12,6 +13,11 @@ export const mealShort = (tag) => MEAL_TAGS.find((m) => m.key === tag)?.short ??
 
 const INGREDIENT_COLS =
   'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, aliases, supplier:suppliers(name)'
+
+// shelf_life_days arrives with migration 11. Asking PostgREST for a column
+// that doesn't exist yet fails the WHOLE query, which would blank the
+// inventory — so it's requested separately and dropped if it isn't there.
+const INGREDIENT_COLS_FULL = `${INGREDIENT_COLS}, shelf_life_days`
 
 // Teach an existing item another spelling ("sibuyas" → Onion) so nobody
 // creates a duplicate next time. Non-fatal: the action it accompanies has
@@ -41,6 +47,9 @@ export async function learnAlias(ingredient, spelling, actorId) {
 
 // Read all ingredients with their supplier name (if linked), sorted by name.
 export async function fetchIngredients() {
+  const full = await supabase.from('ingredients').select(INGREDIENT_COLS_FULL).order('name')
+  if (!full.error) return full.data ?? []
+
   const { data, error } = await supabase
     .from('ingredients')
     .select(INGREDIENT_COLS)
@@ -63,11 +72,17 @@ export async function updateIngredient(ingredient, fields, actorId) {
       .map((a) => a.trim())
       .filter(Boolean),
   }
+  // Only send shelf life if the column is actually there — the ingredient we
+  // were handed came from fetchIngredients, which drops it pre-migration.
+  if ('shelf_life_days' in ingredient) {
+    patch.shelf_life_days =
+      fields.shelfLife === '' || fields.shelfLife == null ? null : Number(fields.shelfLife)
+  }
   const { data, error } = await supabase
     .from('ingredients')
     .update(patch)
     .eq('id', ingredient.id)
-    .select(INGREDIENT_COLS)
+    .select('shelf_life_days' in ingredient ? INGREDIENT_COLS_FULL : INGREDIENT_COLS)
     .single()
   if (error) throw error
   const bits = []
@@ -133,6 +148,17 @@ export async function addIngredient({ name, unit, minThreshold, mealTag, quantit
     actorId,
     { type: 'ingredient_add', ingredient_id: data.id }
   )
+  // Recorded even at zero: it's the item's opening balance, and without it
+  // the history has nothing to carry forward from.
+  await recordMovement({
+    ingredientId: data.id,
+    kind: 'add',
+    delta: data.quantity,
+    qtyAfter: data.quantity,
+    actorId,
+    sourceTable: 'ingredients',
+    sourceId: data.id,
+  })
   return data
 }
 
@@ -155,4 +181,14 @@ export async function saveStockCount(ingredient, newQty, actorId) {
       to: newQty,
     }
   )
+  // delta here is counted-minus-expected, not consumption: purchases and
+  // cooked dishes have already moved `quantity` on their own. What's left is
+  // the unaccounted gap.
+  await recordMovement({
+    ingredientId: ingredient.id,
+    kind: 'count',
+    delta: Number(newQty) - Number(ingredient.quantity),
+    qtyAfter: newQty,
+    actorId,
+  })
 }

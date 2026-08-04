@@ -6,6 +6,7 @@ import Login from './screens/Login.jsx'
 import Home from './screens/Home.jsx'
 import Inventory from './screens/Inventory.jsx'
 import CountStock from './screens/CountStock.jsx'
+import StockHistory from './screens/StockHistory.jsx'
 import WasteLog from './screens/WasteLog.jsx'
 import Recipes from './screens/Recipes.jsx'
 import RecipeDetail from './screens/RecipeDetail.jsx'
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/count" element={<CountStock />} />
+          <Route path="/history" element={<StockHistory />} />
           <Route path="/recipes" element={<Recipes />} />
           <Route path="/recipes/:id" element={<RecipeDetail />} />
           <Route path="/recipes/:id/edit" element={<RecipeEdit />} />

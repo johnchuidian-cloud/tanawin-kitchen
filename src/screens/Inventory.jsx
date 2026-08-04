@@ -12,9 +12,10 @@ import {
   MEAL_TAGS,
   mealShort,
 } from '../lib/inventory.js'
+import { fetchItemStatus, ageSummary } from '../lib/movements.js'
 
 const DOT = { low: 'lowd', mid: 'mid', ok: 'ok' }
-const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '' }
+const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '', shelfLife: '' }
 
 export default function Inventory() {
   const navigate = useNavigate()
@@ -27,12 +28,18 @@ export default function Inventory() {
   const [form, setForm] = useState(BLANK)
   const [saving, setSaving] = useState(false)
   const [mealFilter, setMealFilter] = useState('')
+  const [status, setStatus] = useState({})
 
   useEffect(() => {
     let active = true
     fetchIngredients()
       .then((data) => active && setItems(data))
       .catch((e) => active && setError(e.message || 'Could not load inventory.'))
+    // Ages are a nice-to-have: if the history table isn't there yet, the list
+    // renders exactly as it always did.
+    fetchItemStatus()
+      .then((s) => active && setStatus(s))
+      .catch(() => {})
     return () => {
       active = false
     }
@@ -63,6 +70,7 @@ export default function Inventory() {
       minThreshold: i.min_threshold == null ? '' : String(i.min_threshold),
       mealTag: i.meal_tag ?? '',
       aliases: (i.aliases ?? []).join(', '),
+      shelfLife: i.shelf_life_days == null ? '' : String(i.shelf_life_days),
     })
     setError('')
     setSuccess('')
@@ -161,6 +169,20 @@ export default function Inventory() {
           ))}
         </select>
       </div>
+      {ingredient && 'shelf_life_days' in ingredient ? (
+        <div className="field">
+          <label>Keeps for about (days, optional)</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={form.shelfLife}
+            onChange={(e) => set('shelfLife', e.target.value)}
+            placeholder="leave blank if unsure"
+          />
+        </div>
+      ) : null}
       <div className="field">
         <label>Also known as (comma separated)</label>
         <input
@@ -215,19 +237,23 @@ export default function Inventory() {
           ) : (
             <div className="card" style={{ marginTop: 6 }}>
               {shown.map((i) => {
-                const status = stockStatus(i)
-                const isLow = status === 'low'
+                const level = stockStatus(i)
+                const isLow = level === 'low'
                 const tag = mealShort(i.meal_tag)
+                const age = ageSummary(status[i.id], i)
                 return (
                   <div key={i.id}>
                     <div className="row">
-                      <span className={`dot ${DOT[status]}`}></span>
+                      <span className={`dot ${DOT[level]}`}></span>
                       <div className="info">
                         <div className="n">{i.name}</div>
                         <div className="m">
                           {i.supplier?.name ?? 'No supplier set'}
                           {tag ? ` · ${tag}` : ''}
                         </div>
+                        {/* Plain, uncoloured: the app reports the age, the cook
+                            decides what it means. */}
+                        {age ? <div className="m">{age}</div> : null}
                       </div>
                       {editingId === i.id ? null : (
                         <>
@@ -238,6 +264,13 @@ export default function Inventory() {
                             </small>
                           </div>
                           <span className={`pill ${isLow ? 'low' : 'ok'}`}>{isLow ? 'LOW' : 'OK'}</span>
+                          <button
+                            className="mini-btn"
+                            title="Stock history"
+                            onClick={() => navigate(`/history?item=${i.id}`)}
+                          >
+                            📈
+                          </button>
                           {canEdit ? (
                             <button className="mini-btn" onClick={() => startEdit(i)}>
                               Edit

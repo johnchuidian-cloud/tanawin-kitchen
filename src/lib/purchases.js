@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js'
 import { logActivity } from './activity.js'
+import { recordMovement } from './movements.js'
 
 // Round quantities to 4 dp to avoid floating-point artifacts (e.g. 7.4 - 6
 // = 1.4000000000000004) creeping into stored stock levels.
@@ -36,16 +37,20 @@ export async function applyPurchase(p) {
   const newQty = roundQty(Number(ing.quantity) + qty)
   const unitCost = qty > 0 ? Math.round((total / qty) * 100) / 100 : 0
 
-  const ins = await supabase.from('purchases').insert({
-    ingredient_id: p.ingredientId,
-    supplier_id: p.supplierId || null,
-    quantity: qty,
-    total_cost: total,
-    source: p.source || 'manual',
-    recorded_by: p.recordedBy || null,
-    prev_quantity: ing.quantity,
-    prev_cost_per_unit: ing.cost_per_unit,
-  })
+  const ins = await supabase
+    .from('purchases')
+    .insert({
+      ingredient_id: p.ingredientId,
+      supplier_id: p.supplierId || null,
+      quantity: qty,
+      total_cost: total,
+      source: p.source || 'manual',
+      recorded_by: p.recordedBy || null,
+      prev_quantity: ing.quantity,
+      prev_cost_per_unit: ing.cost_per_unit,
+    })
+    .select('id')
+    .single()
   if (ins.error) throw ins.error
 
   const upd = await supabase
@@ -53,6 +58,16 @@ export async function applyPurchase(p) {
     .update({ quantity: newQty, cost_per_unit: unitCost })
     .eq('id', p.ingredientId)
   if (upd.error) throw upd.error
+
+  await recordMovement({
+    ingredientId: p.ingredientId,
+    kind: 'purchase',
+    delta: qty,
+    qtyAfter: newQty,
+    actorId: p.recordedBy || null,
+    sourceTable: 'purchases',
+    sourceId: ins.data?.id,
+  })
 }
 
 // Reverse a restock: subtract the purchased quantity back out of stock and
@@ -82,5 +97,15 @@ export async function undoPurchase(purchase, actorId) {
   await logActivity(`Restock undone — ${purchase.ingredient?.name ?? 'ingredient'}`, actorId, {
     type: 'purchase_undo',
     purchase_id: purchase.id,
+  })
+  await recordMovement({
+    ingredientId: purchase.ingredient_id,
+    kind: 'undo',
+    delta: -Number(purchase.quantity),
+    qtyAfter: newQty,
+    actorId,
+    // Distinct from the purchase's own source key, so both rows can exist.
+    sourceTable: 'purchases_undo',
+    sourceId: purchase.id,
   })
 }

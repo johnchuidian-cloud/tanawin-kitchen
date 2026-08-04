@@ -13,6 +13,7 @@ import {
   youTubeId,
 } from '../lib/recipes.js'
 import { fmtQty, shortUnit } from '../lib/inventory.js'
+import { canCook, planCook, cookDish, describeApplied } from '../lib/cooking.js'
 
 export default function RecipeDetail() {
   const { id } = useParams()
@@ -22,6 +23,9 @@ export default function RecipeDetail() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [batches, setBatches] = useState('1')
+  const [cooking, setCooking] = useState(false)
+  const [cookResult, setCookResult] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -54,6 +58,24 @@ export default function RecipeDetail() {
       setError(err.message || 'Could not recalculate. Try again.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  const handleCook = async () => {
+    setCooking(true)
+    setError('')
+    setMsg('')
+    setCookResult(null)
+    try {
+      const res = await cookDish(recipe, Number(batches) || 1, currentUser.id)
+      setCookResult(res)
+      // Reload so the ingredient costs/quantities on screen reflect the deduction.
+      const fresh = await fetchRecipe(id)
+      setRecipe(fresh)
+    } catch (err) {
+      setError(err.message || 'Could not log this as cooked.')
+    } finally {
+      setCooking(false)
     }
   }
 
@@ -205,6 +227,73 @@ export default function RecipeDetail() {
           via "Edit ingredients".
         </div>
       )}
+
+      {/* Logging a cooked dish deducts stock. Only offered when the recipe
+          carries real quantities — most don't yet, and a button that silently
+          did nothing would be worse than no button. */}
+      {canCook(recipe) && role !== 'guest' ? (
+        <>
+          <div className="section-label" style={{ marginTop: 16 }}>Cooked this?</div>
+          <div className="card">
+            <div className="field">
+              <label>How many batches?</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                min="0"
+                value={batches}
+                onChange={(e) => {
+                  setBatches(e.target.value)
+                  setCookResult(null)
+                }}
+              />
+            </div>
+            {Number(batches) > 0 ? (
+              <div className="note" style={{ marginTop: 0 }}>
+                Will take out:{' '}
+                {planCook(recipe, Number(batches))
+                  .deduct.map((d) => `${d.name} −${fmtQty(d.amount)} ${shortUnit(d.unit)}`)
+                  .join(', ') || 'nothing — no units convert'}
+                {planCook(recipe, Number(batches)).skipped.length ? (
+                  <>
+                    <br />
+                    Not deducted:{' '}
+                    {planCook(recipe, Number(batches))
+                      .skipped.map((s) => `${s.name} (${s.reason})`)
+                      .join('; ')}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            <button
+              className="btn green"
+              disabled={cooking || !(Number(batches) > 0)}
+              onClick={handleCook}
+            >
+              {cooking ? 'Saving…' : '🍳 Log as cooked'}
+            </button>
+            <div className="note">
+              This takes the ingredients out of stock straight away — no approval needed. Your next
+              stock count then shows whether anything went missing on top of this.
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {cookResult ? (
+        <div className="success" style={{ marginTop: 10 }}>
+          Logged. Deducted: {describeApplied(cookResult.applied)}.
+          {cookResult.shortfalls.length
+            ? ` Note: ${cookResult.shortfalls
+                .map((s) => `${s.name} only had ${fmtQty(s.before)} ${shortUnit(s.unit)} on record`)
+                .join('; ')} — worth a fresh count.`
+            : ''}
+          {cookResult.skipped.length
+            ? ` Not deducted: ${cookResult.skipped.map((s) => s.name).join(', ')}.`
+            : ''}
+        </div>
+      ) : null}
 
       {ytid ? (
         <>

@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js'
 import { logActivity } from './activity.js'
+import { recordMovement } from './movements.js'
 import { fmtQty, shortUnit } from './inventory.js'
 
 export const WASTE_REASONS = ['Spoilage', 'Prep error', 'Expired', 'Over-portioned']
@@ -30,4 +31,16 @@ export async function logWaste(ingredient, quantity, reason, actorId) {
     actorId,
     { type: 'waste', ingredient_id: ingredient.id, quantity, reason }
   )
+  // qty_after is the UNCHANGED on-hand figure — logging waste doesn't move
+  // stock (that's long-standing behaviour; the next count absorbs it). The
+  // row is here so a later count's shortfall can be explained rather than
+  // looking like a mystery.
+  await recordMovement({
+    ingredientId: ingredient.id,
+    kind: 'waste',
+    delta: -Math.abs(Number(quantity)),
+    qtyAfter: ingredient.quantity,
+    actorId,
+    note: reason,
+  })
 }

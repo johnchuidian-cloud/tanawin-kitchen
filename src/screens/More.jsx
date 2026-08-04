@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 const LINKS = [
+  { to: '/history', icon: '📈', name: 'Stock history', desc: 'Day by day, per item' },
   { to: '/suppliers', icon: '🚚', name: 'Suppliers', desc: 'Vendors & contact info' },
   { to: '/activity', icon: '📜', name: 'Activity log', desc: 'Who changed what, when' },
   { to: '/purchases', icon: '🧾', name: 'Purchases', desc: 'Restock & Finance pull' },

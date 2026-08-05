@@ -107,14 +107,24 @@ console.log(
     `${rows.filter((r) => r.kind === 'undo').length} undos)`
 )
 
-// merge-duplicates: re-running skips rows already present rather than failing
-// the whole batch on the unique index.
+// Skip anything already backfilled. The unique index on
+// (source_table, source_id) is PARTIAL, and Postgres won't infer an
+// ON CONFLICT target from a partial index — so the de-duplication happens
+// here instead. The index still guards against a concurrent double-run.
+const existing = new Set(
+  (await getAll('stock_movements?select=source_table,source_id&source_table=not.is.null')).map(
+    (r) => `${r.source_table}|${r.source_id}`
+  )
+)
+const fresh = rows.filter((r) => !existing.has(`${r.source_table}|${r.source_id}`))
+console.log(`${existing.size} already in the ledger; inserting ${fresh.length}.`)
+
 let inserted = 0
-for (let i = 0; i < rows.length; i += 200) {
-  const chunk = rows.slice(i, i + 200)
-  const res = await fetch(`${URL_BASE}/stock_movements?on_conflict=source_table,source_id`, {
+for (let i = 0; i < fresh.length; i += 200) {
+  const chunk = fresh.slice(i, i + 200)
+  const res = await fetch(`${URL_BASE}/stock_movements`, {
     method: 'POST',
-    headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=representation' },
+    headers: { ...headers, Prefer: 'return=representation' },
     body: JSON.stringify(chunk),
   })
   if (!res.ok) {
@@ -124,4 +134,4 @@ for (let i = 0; i < rows.length; i += 200) {
   inserted += (await res.json()).length
 }
 
-console.log(`Done — ${inserted} movement rows in the ledger.`)
+console.log(`Done — ${inserted} movement rows inserted.`)

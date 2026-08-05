@@ -247,8 +247,9 @@ export function describeMovement(m, unitLabel) {
     return `Counted ${qty(m.qty_after)}${gap}${who}`
   }
   if (m.kind === 'use') {
-    const dish = m.recipe?.name ? ` for ${m.recipe.name}` : ''
-    const svg = m.servings ? ` ×${m.servings}` : ''
+    const dish = m.recipe?.name ? ` ${m.recipe.name}` : ''
+    // Spelled out: "×8" next to a dish name reads like 8 batches.
+    const svg = m.servings ? ` (${Number(m.servings).toLocaleString()} servings)` : ''
     return `Cooked${dish}${svg} — used ${qty(m.delta)}${who}`
   }
   if (m.kind === 'purchase') return `Restocked +${qty(m.delta)}${who}`

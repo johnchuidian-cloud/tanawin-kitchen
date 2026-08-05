@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js'
 import { logActivity } from './activity.js'
+import { convert } from './units.js'
 
 // Peso formatter: ₱195, ₱12.5 (trims trailing zeros).
 export function peso(n) {
@@ -123,25 +124,63 @@ export async function fetchRecipe(id) {
   return data
 }
 
-// Per-line cost = batch quantity × the ingredient's current cost_per_unit.
+/**
+ * A recipe line's amount expressed in the ingredient's STOCKING unit — the
+ * unit its cost_per_unit is quoted in.
+ *
+ * A line carries its own unit, which needn't match: "500 g" of something
+ * stocked in kg at ₱20/kg is ₱10, not ₱10,000. Multiplying the raw numbers
+ * was out by 1000×. Returns null when the two units can't be reconciled
+ * (pieces vs kg) — pack and piece sizes aren't in the data, so the honest
+ * answer is "a person needs to sort this out", same as cooking and the
+ * Finance import already do.
+ */
+export function lineQtyInStockUnit(line, stockUnit) {
+  const to = stockUnit ?? line.ingredient?.unit
+  return convert(Number(line.quantity || 0), line.unit || to, to)
+}
+
+// Per-line cost. Null when the line's unit can't be converted to the
+// stocking unit — callers surface that rather than showing a wrong number.
 export function lineCost(line) {
-  return Number(line.quantity) * Number(line.ingredient?.cost_per_unit ?? 0)
+  const qty = lineQtyInStockUnit(line)
+  return qty == null ? null : qty * Number(line.ingredient?.cost_per_unit ?? 0)
 }
 
 // Quantity-based batch total and cost per serving (÷ servings per batch).
+// `unconverted` names any line left out because its unit doesn't reconcile;
+// a total that quietly omits lines must say so.
 export function computeCost(recipe, lines) {
-  const batchTotal = lines.reduce((sum, l) => sum + lineCost(l), 0)
+  let batchTotal = 0
+  const unconverted = []
+  for (const l of lines) {
+    const c = lineCost(l)
+    if (c == null) unconverted.push(l.ingredient?.name ?? 'Unknown item')
+    else batchTotal += c
+  }
   const pax = recipe.pax_tier || 1
-  return { batchTotal, costPerServing: batchTotal / pax }
+  return { batchTotal, costPerServing: batchTotal / pax, unconverted }
 }
 
 // Same, from raw editor lines — used by the ingredient editor's live preview.
 export function costFromLines(lines, ingredientsById, paxTier) {
-  const batchTotal = lines.reduce(
-    (s, l) => s + Number(l.quantity || 0) * Number(ingredientsById[l.ingredient_id]?.cost_per_unit ?? 0),
-    0
-  )
-  return { batchTotal, costPerServing: batchTotal / (paxTier || 1) }
+  let batchTotal = 0
+  const unconverted = []
+  for (const l of lines) {
+    const ing = ingredientsById[l.ingredient_id]
+    const qty = lineQtyInStockUnit({ quantity: l.quantity, unit: l.unit }, ing?.unit)
+    if (qty == null) unconverted.push(ing?.name ?? 'Unknown item')
+    else batchTotal += qty * Number(ing?.cost_per_unit ?? 0)
+  }
+  return { batchTotal, costPerServing: batchTotal / (paxTier || 1), unconverted }
+}
+
+// Lines whose unit can't be reconciled with how the item is stocked. Recalculate
+// refuses to run while any exist — it WRITES the result to the database, so a
+// silently incomplete total would become stored data.
+export function unitProblems(recipe) {
+  if (recipe?.cost_lines?.length) return [] // peso grid: no units involved
+  return computeCost(recipe, recipe?.lines ?? []).unconverted
 }
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100
@@ -194,6 +233,14 @@ export async function replaceRecipeIngredients(recipeId, lines) {
 // MANUAL recalculation — only runs when invoked (never automatic). Writes the
 // computed cost into each tier; prices are untouched (always hand-set).
 export async function recalcRecipe(recipe, actorId) {
+  const problems = unitProblems(recipe)
+  if (problems.length) {
+    throw new Error(
+      `Can't calculate yet — ${problems.join(', ')} ${problems.length === 1 ? 'is' : 'are'} ` +
+        `measured in a unit that doesn't match how the item is stocked. Fix the units in ` +
+        `"Edit ingredients" first, otherwise the cost saved here would be wrong.`
+    )
+  }
   const computed = computedTierCosts(recipe)
   if (!computed) throw new Error('Nothing to calculate from — add costing first.')
   const baseTiers = recipe.tiers?.length ? recipe.tiers : [{ label: 'each', price: null }]

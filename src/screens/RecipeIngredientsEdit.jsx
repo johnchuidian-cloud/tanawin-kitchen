@@ -220,6 +220,13 @@ export default function RecipeIngredientsEdit() {
               </div>
             </div>
           </div>
+          {preview.unconverted.length ? (
+            <div className="note" style={{ marginTop: 0 }}>
+              ⚠️ {preview.unconverted.join(', ')} left out of the total — the amount here is in a
+              unit that doesn't match how the item is stocked. That usually means the item's unit
+              was changed after this recipe was written.
+            </div>
+          ) : null}
           <div className="note" style={{ marginTop: 0 }}>
             Costs only change when you tap Recalculate — this preview shows what they would become.
             Prices are hand-set on the Tanawin Menu and never computed here.

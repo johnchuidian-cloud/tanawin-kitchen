@@ -5,9 +5,9 @@ import {
   fetchRecipe,
   recalcRecipe,
   computeCost,
-  computedTierCosts,
   costsStale,
   lineCost,
+  unitProblems,
   tierColumnSum,
   peso,
   youTubeId,
@@ -43,7 +43,9 @@ export default function RecipeDetail() {
   const hasGrid = costLines.length > 0
   const hasQty = qtyLines.length > 0
   const canEdit = role === 'admin' || role === 'staff'
-  const stale = recipe ? costsStale(recipe) : false
+  // While a unit can't be reconciled the totals are knowingly incomplete, so
+  // "tap Recalculate" would be bad advice — Recalculate refuses to run.
+  const stale = recipe ? costsStale(recipe) && !unitProblems(recipe).length : false
   const ytid = youTubeId(recipe?.video_url)
 
   const handleRecalc = async () => {
@@ -98,6 +100,7 @@ export default function RecipeDetail() {
   }
 
   const batchTotal = hasQty ? computeCost(recipe, qtyLines).batchTotal : 0
+  const unitTrouble = unitProblems(recipe)
 
   return (
     <>
@@ -207,19 +210,33 @@ export default function RecipeDetail() {
             Ingredients (batch of {recipe.pax_tier || 1})
           </div>
           <div className="card">
-            {qtyLines.map((l) => (
-              <div className="ing-line" key={l.id}>
-                <span>
-                  {l.ingredient?.name ?? 'Unknown'} — {fmtQty(l.quantity)} {shortUnit(l.unit)}
-                </span>
-                <span className="c">{peso(lineCost(l))}</span>
-              </div>
-            ))}
+            {qtyLines.map((l) => {
+              const cost = lineCost(l)
+              return (
+                <div className="ing-line" key={l.id}>
+                  <span>
+                    {l.ingredient?.name ?? 'Unknown'} — {fmtQty(l.quantity)} {shortUnit(l.unit)}
+                  </span>
+                  {/* A cost we can't work out is shown as unknown, never as ₱0
+                      and never as the raw multiplication. */}
+                  <span className="c">{cost == null ? '—' : peso(cost)}</span>
+                </div>
+              )
+            })}
             <div className="ing-line" style={{ fontWeight: 700 }}>
-              <span>Batch total</span>
+              <span>Batch total{unitTrouble.length ? ' (incomplete)' : ''}</span>
               <span>{peso(batchTotal)}</span>
             </div>
           </div>
+          {unitTrouble.length ? (
+            <div className="note">
+              ⚠️ {unitTrouble.join(', ')} {unitTrouble.length === 1 ? 'is' : 'are'} measured here in
+              a unit that doesn't match how the item is stocked (like pieces vs kg), so{' '}
+              {unitTrouble.length === 1 ? 'its cost is' : 'their costs are'} left out of the total.
+              Only a person knows what one pack or piece weighs — fix the units in "Edit
+              ingredients" and the total completes itself.
+            </div>
+          ) : null}
         </>
       ) : (
         <div className="placeholder">

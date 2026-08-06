@@ -2,20 +2,26 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { fetchRecipe, costFromLines, peso } from '../lib/recipes.js'
-import { fetchIngredients, shortUnit, fmtQty } from '../lib/inventory.js'
+import { fetchIngredients, shortUnit, fmtQty, UNITS } from '../lib/inventory.js'
+import { convert } from '../lib/units.js'
 import { submitIngredientsEdit, applyIngredientsDirect } from '../lib/approvals.js'
 
 // Human-readable diff of ingredient lines (added / removed / changed).
 function describeChanges(before, after, byId) {
-  const bMap = new Map(before.map((l) => [l.ingredient_id, l.quantity]))
-  const aMap = new Map(after.map((l) => [l.ingredient_id, l.quantity]))
+  const bMap = new Map(before.map((l) => [l.ingredient_id, l]))
+  const aMap = new Map(after.map((l) => [l.ingredient_id, l]))
   const name = (id) => byId[id]?.name ?? 'ingredient'
-  const u = (id) => shortUnit(byId[id]?.unit ?? '')
+  // The LINE's unit, not the stock unit — they can differ, and an approval
+  // that quotes the wrong one is worse than useless.
+  const u = (l) => shortUnit(l.unit || byId[l.ingredient_id]?.unit || '')
   const parts = []
   for (const l of after) {
-    if (!bMap.has(l.ingredient_id)) parts.push(`added ${name(l.ingredient_id)} (${fmtQty(l.quantity)} ${u(l.ingredient_id)})`)
-    else if (Number(bMap.get(l.ingredient_id)) !== Number(l.quantity))
-      parts.push(`${name(l.ingredient_id)} ${fmtQty(bMap.get(l.ingredient_id))} → ${fmtQty(l.quantity)} ${u(l.ingredient_id)}`)
+    const prev = bMap.get(l.ingredient_id)
+    if (!prev) parts.push(`added ${name(l.ingredient_id)} (${fmtQty(l.quantity)} ${u(l)})`)
+    else if (Number(prev.quantity) !== Number(l.quantity) || prev.unit !== l.unit)
+      parts.push(
+        `${name(l.ingredient_id)} ${fmtQty(prev.quantity)} ${u(prev)} → ${fmtQty(l.quantity)} ${u(l)}`
+      )
   }
   for (const l of before) {
     if (!aMap.has(l.ingredient_id)) parts.push(`removed ${name(l.ingredient_id)}`)
@@ -65,6 +71,11 @@ export default function RecipeIngredientsEdit() {
 
   const setQty = (idx, v) =>
     setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, quantity: v } : l)))
+  // The unit the RECIPE is written in — it needn't match how the item is
+  // stocked ("500 g" of something bought by the kilo). Costing and cooking
+  // convert; where they can't, the line says so.
+  const setUnit = (idx, u) =>
+    setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, unit: u } : l)))
   const removeLine = (idx) => setLines((ls) => ls.filter((_, i) => i !== idx))
   const addLine = (ingredientId) => {
     const ing = byId[ingredientId]
@@ -163,24 +174,56 @@ export default function RecipeIngredientsEdit() {
             {lines.length === 0 ? (
               <div className="muted" style={{ padding: '6px 2px' }}>No ingredients yet — add one below.</div>
             ) : (
-              lines.map((l, idx) => (
-                <div className="line-edit" key={l.ingredient_id}>
-                  <span className="ln">{byId[l.ingredient_id]?.name ?? 'Unknown'}</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="any"
-                    min="0"
-                    value={l.quantity}
-                    onChange={(e) => setQty(idx, e.target.value)}
-                    placeholder="qty"
-                  />
-                  <span className="lu">{shortUnit(l.unit)}</span>
-                  <button type="button" className="rm" onClick={() => removeLine(idx)} title="Remove">
-                    ✕
-                  </button>
-                </div>
-              ))
+              lines.map((l, idx) => {
+                const ing = byId[l.ingredient_id]
+                // Can this line's unit be turned into the unit the item is
+                // stocked (and priced) in? Flagged here, at the moment of
+                // choosing, rather than as a surprise on the recipe page.
+                const converts = convert(1, l.unit || ing?.unit, ing?.unit) != null
+                return (
+                  <div key={l.ingredient_id}>
+                    <div className="line-edit">
+                      <span className="ln">{ing?.name ?? 'Unknown'}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        min="0"
+                        value={l.quantity}
+                        onChange={(e) => setQty(idx, e.target.value)}
+                        placeholder="qty"
+                      />
+                      <select
+                        className="line-unit"
+                        value={l.unit || ing?.unit || ''}
+                        onChange={(e) => setUnit(idx, e.target.value)}
+                      >
+                        {UNITS.map((u) => (
+                          <option key={u} value={u}>
+                            {shortUnit(u)}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" className="rm" onClick={() => removeLine(idx)} title="Remove">
+                        ✕
+                      </button>
+                    </div>
+                    {!converts ? (
+                      <div className="note" style={{ marginTop: 0, marginBottom: 8 }}>
+                        ⚠️ {ing?.name} is counted in {shortUnit(ing?.unit)}, and there's no fixed way
+                        to turn {shortUnit(l.unit)} into {shortUnit(ing?.unit)} — that depends on
+                        size, which only a person knows. This line won't be costed, and cooking
+                        won't take it out of stock. Use {shortUnit(ing?.unit)} if you can.
+                      </div>
+                    ) : l.unit && ing && l.unit !== ing.unit && Number(l.quantity) > 0 ? (
+                      <div className="note" style={{ marginTop: 0, marginBottom: 8 }}>
+                        = {fmtQty(convert(Number(l.quantity), l.unit, ing.unit))} {shortUnit(ing.unit)}{' '}
+                        in stock terms
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })
             )}
 
             {available.length > 0 ? (

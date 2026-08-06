@@ -98,6 +98,72 @@ export function priceRange(tiers) {
   return lo === hi ? peso(lo) : `${peso(lo)}–${Number(hi).toLocaleString()}`
 }
 
+/**
+ * Create a dish. Starts with no prices and off the menu — prices are hand-set
+ * and mirror the Tanawin Menu app, so a new recipe shouldn't look priced until
+ * someone has actually decided. Staff may add (same reasoning as stock items:
+ * an empty recipe has no financial effect, and it's logged); only an admin can
+ * delete one.
+ */
+export async function addRecipe({ name, category, paxTier, mealTag }, actorId) {
+  const { data, error } = await supabase
+    .from('recipes')
+    .insert({
+      name: name.trim(),
+      category: (category || '').trim() || 'Uncategorised',
+      pax_tier: Number(paxTier) || 1,
+      meal_tag: mealTag || null,
+      is_available: false,
+      tiers: [],
+    })
+    .select('id, name, category, pax_tier, tiers, is_available, meal_tag')
+    .single()
+  if (error) throw error
+  await logActivity(`Recipe added — ${data.name} (${data.category})`, actorId, {
+    type: 'recipe_add',
+    recipe_id: data.id,
+  })
+  return data
+}
+
+/**
+ * What deleting this dish would affect. Its ingredient lines go with it; the
+ * cooked-stock history does NOT — stock_movements.recipe_id is ON DELETE SET
+ * NULL, so the deductions stay on each item's history but stop naming the
+ * dish. Worth saying out loud rather than discovering later.
+ */
+export async function recipeUsage(recipeId) {
+  const count = async (table, column, value) => {
+    const { count: n, error } = await supabase
+      .from(table)
+      .select(column, { count: 'exact', head: true })
+      .eq(column, value)
+    if (error) {
+      console.warn(`recipe usage check failed on ${table}:`, error.message)
+      return null
+    }
+    return n ?? 0
+  }
+  const [lines, cooked] = await Promise.all([
+    count('recipe_ingredients', 'recipe_id', recipeId),
+    count('stock_movements', 'recipe_id', recipeId),
+  ])
+  return { lines, cooked }
+}
+
+export async function deleteRecipe(recipe, actorId) {
+  // Lines first: they're the recipe's own detail, and leaving orphans behind
+  // if the delete half-fails would be worse than an explicit two-step.
+  const delLines = await supabase.from('recipe_ingredients').delete().eq('recipe_id', recipe.id)
+  if (delLines.error) throw delLines.error
+  const { error } = await supabase.from('recipes').delete().eq('id', recipe.id)
+  if (error) throw error
+  await logActivity(`Recipe deleted — ${recipe.name}`, actorId, {
+    type: 'recipe_delete',
+    recipe_name: recipe.name,
+  })
+}
+
 export async function fetchRecipes() {
   const { data, error } = await supabase
     .from('recipes')

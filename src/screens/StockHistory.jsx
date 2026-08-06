@@ -39,7 +39,9 @@ export default function StockHistory() {
 
   useEffect(() => {
     let active = true
-    fetchIngredients()
+    // Archived items included on purpose: looking back at something you've
+    // retired is exactly when you want its history.
+    fetchIngredients({ includeArchived: true })
       .then((data) => {
         if (!active) return
         setItems(data)

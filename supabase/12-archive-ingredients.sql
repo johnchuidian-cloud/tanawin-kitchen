@@ -1,0 +1,18 @@
+-- ============================================================
+-- TANAWIN KITCHEN — retiring a stock item
+--
+-- Items go out of use (e.g. "Vegetables (assorted)" once each vegetable
+-- has its own entry), but deleting one CASCADES: it takes that item's
+-- purchase records with it — real money, pulled from the Expenses app —
+-- along with its stock history and any remembered Finance matches.
+--
+-- So the normal action is ARCHIVE: the item disappears from Inventory
+-- and from every dropdown, but nothing is destroyed and it can be
+-- brought back. archived_at doubles as the "when", for the record.
+--
+-- A true delete stays available only for items with no history at all
+-- (a typo added by mistake) — there, nothing can be lost.
+--
+-- Run once in the Supabase SQL Editor (EXPENSES project).
+-- ============================================================
+alter table ingredients add column if not exists archived_at timestamptz;

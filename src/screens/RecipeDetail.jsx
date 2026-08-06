@@ -8,6 +8,8 @@ import {
   costsStale,
   lineCost,
   unitProblems,
+  recipeUsage,
+  deleteRecipe,
   tierColumnSum,
   peso,
   youTubeId,
@@ -23,6 +25,8 @@ export default function RecipeDetail() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [usage, setUsage] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [batches, setBatches] = useState('1')
   const [cooking, setCooking] = useState(false)
   const [cookResult, setCookResult] = useState(null)
@@ -32,6 +36,11 @@ export default function RecipeDetail() {
     fetchRecipe(id)
       .then((data) => active && setRecipe(data))
       .catch((e) => active && setError(e.message || 'Could not load this recipe.'))
+    // What a delete would affect — loaded up front so the button can say so
+    // before it's tapped, not after.
+    recipeUsage(id)
+      .then((u) => active && setUsage(u))
+      .catch(() => {})
     return () => {
       active = false
     }
@@ -59,6 +68,18 @@ export default function RecipeDetail() {
     } catch (err) {
       setError(err.message || 'Could not recalculate. Try again.')
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await deleteRecipe(recipe, currentUser.id)
+      navigate('/recipes')
+    } catch (err) {
+      setError(err.message || 'Could not delete this recipe.')
       setBusy(false)
     }
   }
@@ -371,24 +392,69 @@ export default function RecipeDetail() {
           >
             ↻ {busy ? 'Recalculating…' : 'Recalculate costs'}
           </button>
-          {hasGrid || !hasQty ? (
-            <button className="btn ghost" onClick={() => navigate(`/recipes/${recipe.id}/costing`)}>
-              Edit costing
-            </button>
-          ) : null}
-          {hasQty || !hasGrid ? (
-            <button className="btn ghost" onClick={() => navigate(`/recipes/${recipe.id}/ingredients`)}>
-              Edit ingredients
-            </button>
-          ) : null}
+          {/* Both are always offered. "Edit ingredients" used to hide itself
+              on any recipe that had a costing grid, which made the one screen
+              that drives stock deduction unreachable for most dishes. */}
+          <button className="btn ghost" onClick={() => navigate(`/recipes/${recipe.id}/costing`)}>
+            Edit costing{hasGrid ? '' : ' (peso sheet)'}
+          </button>
+          <button className="btn ghost" onClick={() => navigate(`/recipes/${recipe.id}/ingredients`)}>
+            Edit ingredients{hasQty ? '' : ' (amounts + units)'}
+          </button>
           <button className="btn" onClick={() => navigate(`/recipes/${recipe.id}/edit`)}>
             Edit recipe
           </button>
           <div className="note">
-            Prices mirror the Tanawin Menu and only change by hand (via Edit recipe
-            {role === 'admin' ? '' : ', with Lexi\'s approval'}). Recalculate only runs when you tap
+            <b>Edit costing</b> is the peso sheet — it sets the cost per size.{' '}
+            <b>Edit ingredients</b> links to your stock with amounts and units — that's what makes
+            "Cooked this?" appear and takes things out of stock. Filling in both is worth it; they
+            do different jobs. Prices mirror the Tanawin Menu and only change by hand (via Edit
+            recipe
+            {role === 'admin' ? '' : ", with Lexi's approval"}). Recalculate only runs when you tap
             it — costs never shift on their own.
           </div>
+
+          {role === 'admin' ? (
+            <>
+              <div className="note" style={{ marginTop: 12 }}>
+                {usage == null
+                  ? 'Checking what this dish has attached…'
+                  : `Deleting removes this dish${
+                      usage.lines ? ` and its ${usage.lines} ingredient line${usage.lines === 1 ? '' : 's'}` : ''
+                    }.${
+                      usage.cooked
+                        ? ` The ${usage.cooked} cooked entr${usage.cooked === 1 ? 'y' : 'ies'} in your stock history stay put — the stock still shows as used, it just stops naming the dish.`
+                        : ''
+                    } This can't be undone.`}
+              </div>
+              <div className="appr-actions">
+                {confirmDelete ? (
+                  <>
+                    <button className="btn" type="button" disabled={busy} onClick={handleDelete}>
+                      {busy ? 'Deleting…' : `Really delete ${recipe.name}?`}
+                    </button>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setConfirmDelete(false)}
+                    >
+                      Keep it
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn ghost"
+                    type="button"
+                    disabled={busy || usage == null}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    🗑️ Delete this dish
+                  </button>
+                )}
+              </div>
+            </>
+          ) : null}
         </>
       ) : (
         <div className="guest-banner">👁️ Guest view — recipe costs are read-only.</div>

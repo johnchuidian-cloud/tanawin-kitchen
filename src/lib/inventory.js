@@ -14,10 +14,11 @@ export const mealShort = (tag) => MEAL_TAGS.find((m) => m.key === tag)?.short ??
 const INGREDIENT_COLS =
   'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, aliases, supplier:suppliers(name)'
 
-// shelf_life_days arrives with migration 11. Asking PostgREST for a column
-// that doesn't exist yet fails the WHOLE query, which would blank the
-// inventory — so it's requested separately and dropped if it isn't there.
-const INGREDIENT_COLS_FULL = `${INGREDIENT_COLS}, shelf_life_days`
+// shelf_life_days (migration 11) and archived_at (migration 12). Asking
+// PostgREST for a column that doesn't exist yet fails the WHOLE query, which
+// would blank the inventory — so they're requested together and the whole
+// lot is dropped if the migrations haven't run.
+const INGREDIENT_COLS_FULL = `${INGREDIENT_COLS}, shelf_life_days, archived_at`
 
 // Teach an existing item another spelling ("sibuyas" → Onion) so nobody
 // creates a duplicate next time. Non-fatal: the action it accompanies has
@@ -46,8 +47,13 @@ export async function learnAlias(ingredient, spelling, actorId) {
 }
 
 // Read all ingredients with their supplier name (if linked), sorted by name.
-export async function fetchIngredients() {
-  const full = await supabase.from('ingredients').select(INGREDIENT_COLS_FULL).order('name')
+// Archived items are left out everywhere by default — that's the point of
+// archiving — except where seeing them is the whole idea (their own history,
+// and the Inventory screen's "show archived" view).
+export async function fetchIngredients({ includeArchived = false } = {}) {
+  let q = supabase.from('ingredients').select(INGREDIENT_COLS_FULL).order('name')
+  if (!includeArchived) q = q.is('archived_at', null)
+  const full = await q
   if (!full.error) return full.data ?? []
 
   const { data, error } = await supabase
@@ -160,6 +166,106 @@ export async function addIngredient({ name, unit, minThreshold, mealTag, quantit
     sourceId: data.id,
   })
   return data
+}
+
+/**
+ * What this item would take with it if it were really deleted. Deleting an
+ * ingredient CASCADES — verified against the live database — so its purchase
+ * records (real money, pulled from the Expenses app), its stock history and
+ * its remembered Finance matches all go too.
+ *
+ * Counts are read with a HEAD request so nothing but the totals comes back.
+ */
+export async function ingredientUsage(ingredientId) {
+  const count = async (table, column = 'ingredient_id') => {
+    const { count: n, error } = await supabase
+      .from(table)
+      .select(column, { count: 'exact', head: true })
+      .eq(column, ingredientId)
+    if (error) {
+      // Unknown means "can't promise it's safe" — treated as blocking below.
+      console.warn(`usage check failed on ${table}:`, error.message)
+      return null
+    }
+    return n ?? 0
+  }
+  const [purchases, movements, recipeLines, waste, financeMatches] = await Promise.all([
+    count('purchases'),
+    count('stock_movements'),
+    count('recipe_ingredients'),
+    count('waste_log'),
+    count('finance_item_map'),
+  ])
+  const known = [purchases, movements, recipeLines, waste, financeMatches]
+  return {
+    purchases,
+    movements,
+    recipeLines,
+    waste,
+    financeMatches,
+    // Safe to delete only when every check came back, and came back zero.
+    isEmpty: known.every((n) => n === 0),
+  }
+}
+
+// Plain-English list of what a delete would destroy: "4 purchase records, 5
+// history entries". Empty when there's nothing to lose.
+export function describeUsage(u) {
+  const bits = []
+  if (u.purchases) bits.push(`${u.purchases} purchase record${u.purchases === 1 ? '' : 's'}`)
+  if (u.movements) bits.push(`${u.movements} history entr${u.movements === 1 ? 'y' : 'ies'}`)
+  if (u.recipeLines) bits.push(`${u.recipeLines} recipe line${u.recipeLines === 1 ? '' : 's'}`)
+  if (u.waste) bits.push(`${u.waste} waste entr${u.waste === 1 ? 'y' : 'ies'}`)
+  if (u.financeMatches)
+    bits.push(`${u.financeMatches} remembered Finance match${u.financeMatches === 1 ? '' : 'es'}`)
+  return bits.join(', ')
+}
+
+// Retire an item: it vanishes from Inventory and every dropdown, and nothing
+// is destroyed. Reversible — that's why this is the normal way to remove one.
+export async function archiveIngredient(ingredient, actorId) {
+  const { error } = await supabase
+    .from('ingredients')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', ingredient.id)
+  if (error) throw error
+  await logActivity(`Stock item archived — ${ingredient.name}`, actorId, {
+    type: 'ingredient_archive',
+    ingredient_id: ingredient.id,
+  })
+}
+
+export async function unarchiveIngredient(ingredient, actorId) {
+  const { error } = await supabase
+    .from('ingredients')
+    .update({ archived_at: null })
+    .eq('id', ingredient.id)
+  if (error) throw error
+  await logActivity(`Stock item restored — ${ingredient.name}`, actorId, {
+    type: 'ingredient_unarchive',
+    ingredient_id: ingredient.id,
+  })
+}
+
+/**
+ * Really delete — only ever offered for an item with no history whatsoever,
+ * so the cascade has nothing to take. The usage check is repeated here rather
+ * than trusted from the screen: the button may have been sitting there a
+ * while, and this is the irreversible one.
+ */
+export async function deleteIngredient(ingredient, actorId) {
+  const usage = await ingredientUsage(ingredient.id)
+  if (!usage.isEmpty) {
+    throw new Error(
+      `${ingredient.name} now has history attached (${describeUsage(usage)}). ` +
+        `Archive it instead — deleting would destroy that.`
+    )
+  }
+  const { error } = await supabase.from('ingredients').delete().eq('id', ingredient.id)
+  if (error) throw error
+  await logActivity(`Stock item deleted — ${ingredient.name} (no history)`, actorId, {
+    type: 'ingredient_delete',
+  })
 }
 
 // Record a physical stock recount: set the ingredient's quantity to the

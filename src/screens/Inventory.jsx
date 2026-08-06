@@ -5,6 +5,11 @@ import AddStockItem from '../components/AddStockItem.jsx'
 import {
   fetchIngredients,
   updateIngredient,
+  ingredientUsage,
+  describeUsage,
+  archiveIngredient,
+  unarchiveIngredient,
+  deleteIngredient,
   stockStatus,
   shortUnit,
   fmtQty,
@@ -116,10 +121,13 @@ export default function Inventory() {
   const [saving, setSaving] = useState(false)
   const [mealFilter, setMealFilter] = useState('')
   const [status, setStatus] = useState({})
+  const [showArchived, setShowArchived] = useState(false)
+  const [usage, setUsage] = useState(null) // what the open item would lose
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     let active = true
-    fetchIngredients()
+    fetchIngredients({ includeArchived: true })
       .then((data) => active && setItems(data))
       .catch((e) => active && setError(e.message || 'Could not load inventory.'))
     // Ages are a nice-to-have: if the history table isn't there yet, the list
@@ -135,9 +143,10 @@ export default function Inventory() {
   const canEdit = role === 'admin' || role === 'staff'
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  const shown = (items ?? []).filter(
-    (i) => !mealFilter || i.meal_tag === mealFilter || i.meal_tag === 'both'
-  )
+  const archivedCount = (items ?? []).filter((i) => i.archived_at).length
+  const shown = (items ?? [])
+    .filter((i) => (showArchived ? i.archived_at : !i.archived_at))
+    .filter((i) => !mealFilter || i.meal_tag === mealFilter || i.meal_tag === 'both')
   const lowCount = shown.filter((i) => stockStatus(i) === 'low').length
 
   const startAdd = () => {
@@ -161,6 +170,13 @@ export default function Inventory() {
     })
     setError('')
     setSuccess('')
+    // Look up what a delete would destroy, so the panel can offer the right
+    // option rather than a delete that fails or quietly takes history with it.
+    setUsage(null)
+    setConfirmDelete(false)
+    ingredientUsage(i.id)
+      .then((u) => setUsage(u))
+      .catch(() => setUsage(null))
   }
 
   const cancel = () => {
@@ -168,6 +184,25 @@ export default function Inventory() {
     setEditingId(null)
     setForm(BLANK)
     setError('')
+    setUsage(null)
+    setConfirmDelete(false)
+  }
+
+  const runAction = async (fn, ingredient, done) => {
+    setError('')
+    setSuccess('')
+    setSaving(true)
+    try {
+      await fn(ingredient, currentUser.id)
+      const fresh = await fetchIngredients({ includeArchived: true })
+      setItems(fresh)
+      setSuccess(done)
+      cancel()
+    } catch (err) {
+      setError(err.message || 'That didn\'t work. Try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const dupeCheck = (name, exceptId) =>
@@ -238,6 +273,17 @@ export default function Inventory() {
                 {m.short}
               </button>
             ))}
+            {archivedCount > 0 || showArchived ? (
+              <button
+                className={`chip ${showArchived ? 'on' : ''}`}
+                onClick={() => {
+                  setShowArchived((v) => !v)
+                  cancel()
+                }}
+              >
+                📥 Archived ({archivedCount})
+              </button>
+            ) : null}
           </div>
 
           {shown.length === 0 ? (
@@ -273,7 +319,11 @@ export default function Inventory() {
                               min {fmtQty(i.min_threshold)} {shortUnit(i.unit)}
                             </small>
                           </div>
-                          <span className={`pill ${isLow ? 'low' : 'ok'}`}>{isLow ? 'LOW' : 'OK'}</span>
+                          {i.archived_at ? (
+                            <span className="pill">ARCHIVED</span>
+                          ) : (
+                            <span className={`pill ${isLow ? 'low' : 'ok'}`}>{isLow ? 'LOW' : 'OK'}</span>
+                          )}
                           <button
                             className="mini-btn"
                             title="Stock history"
@@ -281,7 +331,18 @@ export default function Inventory() {
                           >
                             📈
                           </button>
-                          {canEdit ? (
+                          {canEdit && i.archived_at ? (
+                            <button
+                              className="mini-btn"
+                              disabled={saving}
+                              onClick={() =>
+                                runAction(unarchiveIngredient, i, `${i.name} is back in your list.`)
+                              }
+                            >
+                              Restore
+                            </button>
+                          ) : null}
+                          {canEdit && !i.archived_at ? (
                             <button className="mini-btn" onClick={() => startEdit(i)}>
                               Edit
                             </button>
@@ -302,6 +363,74 @@ export default function Inventory() {
                             Cancel
                           </button>
                         </div>
+
+                        {/* Removing an item. Archive is the normal way out;
+                            deleting is only offered when there's genuinely
+                            nothing attached to lose.
+
+                            Hidden entirely until migration 12 has run —
+                            archived_at absent means the buttons would just
+                            throw, and a button that always fails is worse
+                            than no button. */}
+                        {'archived_at' in i ? (
+                        <>
+                        <div className="note" style={{ marginTop: 12 }}>
+                          {usage == null ? (
+                            'Checking what this item has attached…'
+                          ) : usage.isEmpty ? (
+                            <>
+                              Nothing is attached to {i.name} yet — no purchases, no history. It can
+                              be removed completely, or archived if you might use it later.
+                            </>
+                          ) : (
+                            <>
+                              {i.name} has {describeUsage(usage)} attached. Archiving hides it from
+                              your lists and every dropdown but keeps all of that, and you can bring
+                              it back. Deleting would destroy it, so that isn't offered.
+                            </>
+                          )}
+                        </div>
+                        <div className="appr-actions">
+                          <button
+                            className="btn ghost"
+                            type="button"
+                            disabled={saving}
+                            onClick={() =>
+                              runAction(
+                                archiveIngredient,
+                                i,
+                                `${i.name} archived — find it under "Archived" if you need it back.`
+                              )
+                            }
+                          >
+                            📥 Archive
+                          </button>
+                          {role === 'admin' && usage?.isEmpty ? (
+                            confirmDelete ? (
+                              <button
+                                className="btn"
+                                type="button"
+                                disabled={saving}
+                                onClick={() =>
+                                  runAction(deleteIngredient, i, `${i.name} deleted.`)
+                                }
+                              >
+                                Really delete?
+                              </button>
+                            ) : (
+                              <button
+                                className="btn ghost"
+                                type="button"
+                                disabled={saving}
+                                onClick={() => setConfirmDelete(true)}
+                              >
+                                🗑️ Delete
+                              </button>
+                            )
+                          ) : null}
+                        </div>
+                        </>
+                        ) : null}
                       </form>
                     ) : null}
                   </div>

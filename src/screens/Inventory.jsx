@@ -251,8 +251,8 @@ export default function Inventory() {
       {items ? (
         <>
           <div className="muted">
-            {shown.length} ingredient{shown.length === 1 ? '' : 's'}
-            {lowCount > 0 ? ` · ${lowCount} below threshold` : ''}
+            {shown.length} {showArchived ? 'archived ' : ''}ingredient{shown.length === 1 ? '' : 's'}
+            {!showArchived && lowCount > 0 ? ` · ${lowCount} below threshold` : ''}
             {mealFilter ? ' · filtered' : ''}
           </div>
 
@@ -288,7 +288,13 @@ export default function Inventory() {
 
           {shown.length === 0 ? (
             <div className="placeholder">
-              {mealFilter ? 'No items tagged for this meal yet.' : 'No ingredients yet — add your first stock item below.'}
+              {/* An empty ARCHIVED view once read "No ingredients yet", which
+                  looks like the whole inventory has vanished. */}
+              {showArchived
+                ? 'Nothing archived. Items you retire show up here, and you can bring them back any time.'
+                : mealFilter
+                  ? 'No items tagged for this meal yet.'
+                  : 'No ingredients yet — add your first stock item below.'}
             </div>
           ) : (
             <div className="card" style={{ marginTop: 6 }}>
@@ -335,9 +341,16 @@ export default function Inventory() {
                             <button
                               className="mini-btn"
                               disabled={saving}
-                              onClick={() =>
-                                runAction(unarchiveIngredient, i, `${i.name} is back in your list.`)
-                              }
+                              onClick={async () => {
+                                await runAction(
+                                  unarchiveIngredient,
+                                  i,
+                                  `${i.name} is back in your list.`
+                                )
+                                // Show the list it just came back to, rather
+                                // than leaving them in an emptier Archived view.
+                                setShowArchived(false)
+                              }}
                             >
                               Restore
                             </button>

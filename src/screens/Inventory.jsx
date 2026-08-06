@@ -17,6 +17,93 @@ import { fetchItemStatus, ageSummary } from '../lib/movements.js'
 const DOT = { low: 'lowd', mid: 'mid', ok: 'ok' }
 const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '', shelfLife: '' }
 
+/**
+ * Shared fields for the add and edit forms.
+ *
+ * MUST stay at module level. Declared inside Inventory() it was a brand-new
+ * component type on every render, so React threw the inputs away and rebuilt
+ * them after each keystroke — losing the caret, and letting the name field's
+ * autoFocus drag the cursor back up to "Item name" mid-typing.
+ */
+function Fields({ ingredient, form, set, autoFocusName }) {
+  return (
+    <>
+      <div className="field">
+        <label>Item name</label>
+        <input
+          value={form.name}
+          onChange={(e) => set('name', e.target.value)}
+          placeholder="e.g. Squid, Pork (sisig)"
+          autoFocus={autoFocusName}
+        />
+      </div>
+      <div className="field">
+        <label>Unit</label>
+        <select value={form.unit} onChange={(e) => set('unit', e.target.value)}>
+          {UNITS.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+      </div>
+      {ingredient && form.unit !== ingredient.unit ? (
+        <div className="note" style={{ marginTop: 0, marginBottom: 13 }}>
+          ⚠️ Changing {ingredient.unit} → {form.unit} does <b>not</b> convert the on-hand quantity (
+          {fmtQty(ingredient.quantity)}) or the cost. Do a fresh Count Stock afterwards, and the cost
+          updates on the next purchase. Any recipe still written in {ingredient.unit} will show its
+          cost as “—” until you update it too.
+        </div>
+      ) : null}
+      <div className="field">
+        <label>Reorder below (optional)</label>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="any"
+          min="0"
+          value={form.minThreshold}
+          onChange={(e) => set('minThreshold', e.target.value)}
+          placeholder="leave blank if unsure"
+        />
+      </div>
+      <div className="field">
+        <label>Mainly used for (optional)</label>
+        <select value={form.mealTag} onChange={(e) => set('mealTag', e.target.value)}>
+          <option value="">— not set —</option>
+          {MEAL_TAGS.map((m) => (
+            <option key={m.key} value={m.key}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {ingredient && 'shelf_life_days' in ingredient ? (
+        <div className="field">
+          <label>Keeps for about (days, optional)</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={form.shelfLife}
+            onChange={(e) => set('shelfLife', e.target.value)}
+            placeholder="leave blank if unsure"
+          />
+        </div>
+      ) : null}
+      <div className="field">
+        <label>Also known as (comma separated)</label>
+        <input
+          value={form.aliases}
+          onChange={(e) => set('aliases', e.target.value)}
+          placeholder="e.g. sibuyas, onions"
+        />
+      </div>
+    </>
+  )
+}
+
 export default function Inventory() {
   const navigate = useNavigate()
   const { role, currentUser } = useAuth()
@@ -117,83 +204,6 @@ export default function Inventory() {
     }
   }
 
-  // Shared fields for the add and edit forms.
-  const Fields = ({ ingredient }) => (
-    <>
-      <div className="field">
-        <label>Item name</label>
-        <input
-          value={form.name}
-          onChange={(e) => set('name', e.target.value)}
-          placeholder="e.g. Squid, Pork (sisig)"
-          autoFocus
-        />
-      </div>
-      <div className="field">
-        <label>Unit</label>
-        <select value={form.unit} onChange={(e) => set('unit', e.target.value)}>
-          {UNITS.map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </select>
-      </div>
-      {ingredient && form.unit !== ingredient.unit ? (
-        <div className="note" style={{ marginTop: 0, marginBottom: 13 }}>
-          ⚠️ Changing {ingredient.unit} → {form.unit} does <b>not</b> convert the on-hand quantity (
-          {fmtQty(ingredient.quantity)}) or the cost. Do a fresh Count Stock afterwards, and the cost
-          updates on the next purchase.
-        </div>
-      ) : null}
-      <div className="field">
-        <label>Reorder below (optional)</label>
-        <input
-          type="number"
-          inputMode="decimal"
-          step="any"
-          min="0"
-          value={form.minThreshold}
-          onChange={(e) => set('minThreshold', e.target.value)}
-          placeholder="leave blank if unsure"
-        />
-      </div>
-      <div className="field">
-        <label>Mainly used for (optional)</label>
-        <select value={form.mealTag} onChange={(e) => set('mealTag', e.target.value)}>
-          <option value="">— not set —</option>
-          {MEAL_TAGS.map((m) => (
-            <option key={m.key} value={m.key}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      {ingredient && 'shelf_life_days' in ingredient ? (
-        <div className="field">
-          <label>Keeps for about (days, optional)</label>
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            step="1"
-            value={form.shelfLife}
-            onChange={(e) => set('shelfLife', e.target.value)}
-            placeholder="leave blank if unsure"
-          />
-        </div>
-      ) : null}
-      <div className="field">
-        <label>Also known as (comma separated)</label>
-        <input
-          value={form.aliases}
-          onChange={(e) => set('aliases', e.target.value)}
-          placeholder="e.g. sibuyas, onions"
-        />
-      </div>
-    </>
-  )
-
   return (
     <>
       <h2 className="title">Inventory</h2>
@@ -281,7 +291,9 @@ export default function Inventory() {
                     </div>
                     {editingId === i.id ? (
                       <form className="edit-panel" onSubmit={(e) => handleUpdate(e, i)}>
-                        <Fields ingredient={i} />
+                        {/* No autoFocus on edit: opening the panel to change a
+                            reorder level shouldn't jump to the name field. */}
+                        <Fields ingredient={i} form={form} set={set} autoFocusName={false} />
                         <div className="appr-actions">
                           <button className="btn green" type="submit" disabled={saving}>
                             {saving ? 'Saving…' : 'Save'}

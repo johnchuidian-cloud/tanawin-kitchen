@@ -42,7 +42,10 @@ export default function RecipeIngredientsEdit() {
 
   useEffect(() => {
     let active = true
-    Promise.all([fetchRecipe(id), fetchIngredients()])
+    // Archived items included so a recipe that still uses one can NAME it.
+    // Without them the line rendered as "Unknown" with a malformed unit
+    // warning. They're kept out of the "add an ingredient" picker below.
+    Promise.all([fetchRecipe(id), fetchIngredients({ includeArchived: true })])
       .then(([r, ings]) => {
         if (!active) return
         setRecipe(r)
@@ -62,7 +65,9 @@ export default function RecipeIngredientsEdit() {
   }, [id])
 
   const byId = useMemo(() => Object.fromEntries(ingredients.map((i) => [i.id, i])), [ingredients])
-  const available = ingredients.filter((i) => !lines?.some((l) => l.ingredient_id === i.id))
+  const available = ingredients.filter(
+    (i) => !i.archived_at && !lines?.some((l) => l.ingredient_id === i.id)
+  )
 
   const preview = useMemo(
     () => (lines && recipe ? costFromLines(lines, byId, recipe.pax_tier) : null),
@@ -179,11 +184,17 @@ export default function RecipeIngredientsEdit() {
                 // Can this line's unit be turned into the unit the item is
                 // stocked (and priced) in? Flagged here, at the moment of
                 // choosing, rather than as a surprise on the recipe page.
-                const converts = convert(1, l.unit || ing?.unit, ing?.unit) != null
+                // An item that's gone missing entirely (deleted straight from
+                // the database) has no unit to reconcile against — don't
+                // accuse it of a unit mismatch it can't be guilty of.
+                const converts = !ing || convert(1, l.unit || ing.unit, ing.unit) != null
                 return (
                   <div key={l.ingredient_id}>
                     <div className="line-edit">
-                      <span className="ln">{ing?.name ?? 'Unknown'}</span>
+                      <span className="ln">
+                        {ing?.name ?? 'Item no longer in stock list'}
+                        {ing?.archived_at ? ' (archived)' : ''}
+                      </span>
                       <input
                         type="number"
                         inputMode="decimal"

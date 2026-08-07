@@ -174,8 +174,12 @@ export default function Inventory() {
     // option rather than a delete that fails or quietly takes history with it.
     setUsage(null)
     setConfirmDelete(false)
+    // Tagged with the item it belongs to: opening one item and then another
+    // before the first check returns could otherwise offer Delete for an item
+    // that actually has history. (deleteIngredient re-checks server-side, so
+    // this was never destructive — but the button shouldn't lie.)
     ingredientUsage(i.id)
-      .then((u) => setUsage(u))
+      .then((u) => setUsage({ id: i.id, ...u }))
       .catch(() => setUsage(null))
   }
 
@@ -388,7 +392,7 @@ export default function Inventory() {
                         {'archived_at' in i ? (
                         <>
                         <div className="note" style={{ marginTop: 12 }}>
-                          {usage == null ? (
+                          {usage?.id !== i.id ? (
                             'Checking what this item has attached…'
                           ) : usage.isEmpty ? (
                             <>
@@ -418,7 +422,7 @@ export default function Inventory() {
                           >
                             📥 Archive
                           </button>
-                          {role === 'admin' && usage?.isEmpty ? (
+                          {role === 'admin' && usage?.id === i.id && usage.isEmpty ? (
                             confirmDelete ? (
                               <button
                                 className="btn"

@@ -23,6 +23,7 @@ export const KINDS = {
   use: { label: 'Cooked', icon: '🍳' },
   waste: { label: 'Waste', icon: '🗑️' },
   undo: { label: 'Restock undone', icon: '↩️' },
+  correction: { label: 'Corrected', icon: '✏️' },
 }
 
 const round4 = (n) => Math.round(Number(n) * 10000) / 10000
@@ -251,6 +252,11 @@ export function describeMovement(m, unitLabel) {
     // Spelled out: "×8" next to a dish name reads like 8 batches.
     const svg = m.servings ? ` (${Number(m.servings).toLocaleString()} servings)` : ''
     return `Cooked${dish}${svg} — used ${qty(m.delta)}${who}`
+  }
+  // A correction is a change of measurement, not of stock — the same food is
+  // on the shelf before and after, so it must never read as a gain or a loss.
+  if (m.kind === 'correction') {
+    return `${m.note || 'Corrected'} — now recorded as ${qty(m.qty_after)}${who}`
   }
   if (m.kind === 'purchase') return `Restocked +${qty(m.delta)}${who}`
   if (m.kind === 'undo') return `Restock undone −${qty(m.delta)}${who}`

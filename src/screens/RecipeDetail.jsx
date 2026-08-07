@@ -122,6 +122,8 @@ export default function RecipeDetail() {
 
   const batchTotal = hasQty ? computeCost(recipe, qtyLines).batchTotal : 0
   const unitTrouble = unitProblems(recipe)
+  // Worked out once per render instead of three times inline.
+  const plan = canCook(recipe) ? planCook(recipe, Number(batches) || 0) : null
 
   return (
     <>
@@ -290,16 +292,28 @@ export default function RecipeDetail() {
             {Number(batches) > 0 ? (
               <div className="note" style={{ marginTop: 0 }}>
                 Will take out:{' '}
-                {planCook(recipe, Number(batches))
-                  .deduct.map((d) => `${d.name} −${fmtQty(d.amount)} ${shortUnit(d.unit)}`)
-                  .join(', ') || 'nothing — no units convert'}
-                {planCook(recipe, Number(batches)).skipped.length ? (
+                {plan.deduct.map((d) => `${d.name} −${fmtQty(d.amount)} ${shortUnit(d.unit)}`).join(', ') ||
+                  'nothing — no units convert'}
+                {plan.skipped.length ? (
                   <>
                     <br />
-                    Not deducted:{' '}
-                    {planCook(recipe, Number(batches))
-                      .skipped.map((s) => `${s.name} (${s.reason})`)
+                    Not deducted: {plan.skipped.map((s) => `${s.name} (${s.reason})`).join('; ')}
+                  </>
+                ) : null}
+                {plan.short.length ? (
+                  <>
+                    <br />
+                    ⚠️ Not enough on record:{' '}
+                    {plan.short
+                      .map(
+                        (s) =>
+                          `${s.name} needs ${fmtQty(s.amount)} ${shortUnit(s.unit)} but only ${fmtQty(
+                            s.onHand
+                          )} is on the books`
+                      )
                       .join('; ')}
+                    . Cooking anyway will take out what's there and leave it at zero — worth a fresh
+                    count first.
                   </>
                 ) : null}
               </div>

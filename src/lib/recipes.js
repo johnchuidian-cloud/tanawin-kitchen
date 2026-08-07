@@ -182,7 +182,9 @@ export async function fetchRecipe(id) {
     .select(
       'id, name, category, pax_tier, tiers, cost_lines, prep_instructions, is_available, meal_tag, ' +
         'video_url, image_url, links, ' +
-        'lines:recipe_ingredients(id, ingredient_id, quantity, unit, ingredient:ingredients(name, unit, cost_per_unit))'
+        // on-hand quantity too, so "Cooked this?" can say up front when there
+        // isn't enough rather than reporting it after the fact
+        'lines:recipe_ingredients(id, ingredient_id, quantity, unit, ingredient:ingredients(name, unit, cost_per_unit, quantity))'
     )
     .eq('id', id)
     .single()

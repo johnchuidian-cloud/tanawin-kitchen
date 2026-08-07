@@ -47,9 +47,13 @@ export function planCook(recipe, batches) {
       name: l.ingredient?.name ?? 'Unknown item',
       amount: inStockUnit,
       unit: stockUnit,
+      onHand: l.ingredient?.quantity == null ? null : Number(l.ingredient.quantity),
     })
   }
-  return { deduct, skipped }
+  // Lines the books say there isn't enough of. Flagged before cooking, not
+  // after: "it took 10 kg" when only 5 existed is a lie the cook can't act on.
+  const short = deduct.filter((d) => d.onHand != null && d.amount > d.onHand)
+  return { deduct, skipped, short }
 }
 
 /**
@@ -81,6 +85,9 @@ export async function cookDish(recipe, batches, actorId) {
     // than the books showed, that's flagged — it usually means a restock or a
     // count went unrecorded.
     const after = Math.max(0, Math.round((before - d.amount) * 10000) / 10000)
+    // What actually left the shelf, which is not what was asked for when the
+    // books ran out partway.
+    const deducted = Math.round((before - after) * 10000) / 10000
     if (d.amount > before) shortfalls.push({ ...d, before })
 
     const upd = await supabase.from('ingredients').update({ quantity: after }).eq('id', d.ingredientId)
@@ -89,13 +96,13 @@ export async function cookDish(recipe, batches, actorId) {
     await recordMovement({
       ingredientId: d.ingredientId,
       kind: 'use',
-      delta: -(before - after),
+      delta: -deducted,
       qtyAfter: after,
       actorId,
       recipeId: recipe.id,
       servings: Number(batches) * (recipe.pax_tier || 1),
     })
-    applied.push({ ...d, after })
+    applied.push({ ...d, after, deducted })
   }
 
   await logActivity(
@@ -108,9 +115,10 @@ export async function cookDish(recipe, batches, actorId) {
   return { applied, skipped, shortfalls }
 }
 
-// "Beef shank −1.5 kg, Onion −300 g"
+// "Beef shank −1.5 kg, Onion −300 g" — the amount that actually came out of
+// stock, which differs from the amount asked for when the books ran dry.
 export function describeApplied(applied) {
   return applied
-    .map((a) => `${a.name} −${fmtQty(a.amount)} ${shortUnit(a.unit)}`)
+    .map((a) => `${a.name} −${fmtQty(a.deducted ?? a.amount)} ${shortUnit(a.unit)}`)
     .join(', ')
 }

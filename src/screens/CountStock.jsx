@@ -7,6 +7,7 @@ import {
   shortUnit,
   fmtQty,
 } from '../lib/inventory.js'
+import { countLooksOff } from '../lib/units.js'
 
 export default function CountStock() {
   const { role, currentUser } = useAuth()
@@ -32,6 +33,9 @@ export default function CountStock() {
   }, [])
 
   const selected = items?.find((i) => i.id === selectedId) ?? null
+  // Asked as you type, so it's a question about the number in front of you
+  // rather than a complaint after you've saved.
+  const oddLooking = selected ? countLooksOff(qty, selected.unit, selected.quantity) : null
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -119,6 +123,28 @@ export default function CountStock() {
               placeholder={selected ? `e.g. ${fmtQty(selected.min_threshold)}` : 'e.g. 5'}
             />
           </div>
+
+          {/* A question, never a block: the count still saves as typed if the
+              cook says it's right. */}
+          {oddLooking ? (
+            <div className="note" style={{ marginTop: -4, marginBottom: 12 }}>
+              🤔 {oddLooking.message}
+              {oddLooking.fix ? (
+                <>
+                  <br />
+                  <button
+                    type="button"
+                    className="mini-btn"
+                    style={{ marginTop: 7 }}
+                    onClick={() => setQty(String(oddLooking.fix.value))}
+                  >
+                    {oddLooking.fix.label}
+                  </button>{' '}
+                  — or leave it as {qty} {shortUnit(selected.unit)} if that's right.
+                </>
+              ) : null}
+            </div>
+          ) : null}
 
           <button className="btn green" type="submit" disabled={saving}>
             {saving ? 'Saving…' : 'Save count'}

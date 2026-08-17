@@ -1,0 +1,21 @@
+-- ============================================================
+-- TANAWIN KITCHEN — a note on each stock item
+--
+-- Free text the cooks write for themselves. The reason for it is pack
+-- sizes: an item counted in packs tells you nothing about how much is
+-- in a pack, and every product is different — "1 pack = 250 g",
+-- "bottle = 1.5 L", "sold by the tray of 30".
+--
+-- That single fact is the one the app keeps having to refuse to guess:
+-- it's why a Finance import can't convert packs to grams on its own,
+-- why cooking skips a line measured in the wrong unit, and why costing
+-- shows a dash. Writing it down at least puts it in front of whoever
+-- is standing there counting.
+--
+-- Deliberately free text, not a number: pack sizes are messy in real
+-- life ("about 4-5 pieces", "big pack ~1kg, small ~400g") and a rigid
+-- field would push people into rounding or leaving it blank.
+--
+-- Run once in the Supabase SQL Editor (EXPENSES project).
+-- ============================================================
+alter table ingredients add column if not exists notes text;

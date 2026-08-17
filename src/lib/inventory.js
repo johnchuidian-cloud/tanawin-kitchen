@@ -14,11 +14,24 @@ export const mealShort = (tag) => MEAL_TAGS.find((m) => m.key === tag)?.short ??
 const INGREDIENT_COLS =
   'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, aliases, supplier:suppliers(name)'
 
-// shelf_life_days (migration 11) and archived_at (migration 12). Asking
-// PostgREST for a column that doesn't exist yet fails the WHOLE query, which
-// would blank the inventory — so they're requested together and the whole
-// lot is dropped if the migrations haven't run.
-const INGREDIENT_COLS_FULL = `${INGREDIENT_COLS}, shelf_life_days, archived_at`
+/**
+ * Columns added by later migrations, OLDEST FIRST:
+ *   shelf_life_days — migration 11
+ *   archived_at     — migration 12
+ *   notes           — migration 13
+ *
+ * Asking PostgREST for a column that doesn't exist fails the WHOLE query, so
+ * these are dropped one at a time from the end until the read succeeds. An
+ * all-or-nothing fallback looked simpler and was wrong: adding `notes` made
+ * every request fail on a database that had 11 and 12 applied, which silently
+ * took archiving and shelf life down with it — and, worse, made archived
+ * items reappear in the main list because archived_at came back missing.
+ */
+const OPTIONAL_COLS = ['shelf_life_days', 'archived_at', 'notes']
+
+// Remembered after the first successful read so the retries happen once per
+// session rather than on every screen.
+let workingCols = null
 
 // Teach an existing item another spelling ("sibuyas" → Onion) so nobody
 // creates a duplicate next time. Non-fatal: the action it accompanies has
@@ -51,17 +64,26 @@ export async function learnAlias(ingredient, spelling, actorId) {
 // archiving — except where seeing them is the whole idea (their own history,
 // and the Inventory screen's "show archived" view).
 export async function fetchIngredients({ includeArchived = false } = {}) {
-  let q = supabase.from('ingredients').select(INGREDIENT_COLS_FULL).order('name')
-  if (!includeArchived) q = q.is('archived_at', null)
-  const full = await q
-  if (!full.error) return full.data ?? []
+  // Richest set first, then progressively fewer optional columns.
+  const candidates = workingCols
+    ? [workingCols]
+    : [...Array(OPTIONAL_COLS.length + 1)].map((_, i) => OPTIONAL_COLS.slice(0, OPTIONAL_COLS.length - i))
 
-  const { data, error } = await supabase
-    .from('ingredients')
-    .select(INGREDIENT_COLS)
-    .order('name')
-  if (error) throw error
-  return data ?? []
+  let lastError = null
+  for (const cols of candidates) {
+    const select = [INGREDIENT_COLS, ...cols].join(', ')
+    let q = supabase.from('ingredients').select(select).order('name')
+    // Only filter on a column we're actually asking for, or the filter itself
+    // becomes the thing that fails.
+    if (!includeArchived && cols.includes('archived_at')) q = q.is('archived_at', null)
+    const { data, error } = await q
+    if (!error) {
+      workingCols = cols
+      return data ?? []
+    }
+    lastError = error
+  }
+  throw lastError
 }
 
 // Edit a stock item: name, unit, reorder level, meal tag. NOTE: changing the
@@ -78,17 +100,22 @@ export async function updateIngredient(ingredient, fields, actorId) {
       .map((a) => a.trim())
       .filter(Boolean),
   }
-  // Only send shelf life if the column is actually there — the ingredient we
-  // were handed came from fetchIngredients, which drops it pre-migration.
+  // Only send these if the columns are actually there — the ingredient we
+  // were handed came from fetchIngredients, which drops them pre-migration.
   if ('shelf_life_days' in ingredient) {
     patch.shelf_life_days =
       fields.shelfLife === '' || fields.shelfLife == null ? null : Number(fields.shelfLife)
+  }
+  if ('notes' in ingredient) {
+    patch.notes = (fields.notes ?? '').trim() || null
   }
   const { data, error } = await supabase
     .from('ingredients')
     .update(patch)
     .eq('id', ingredient.id)
-    .select('shelf_life_days' in ingredient ? INGREDIENT_COLS_FULL : INGREDIENT_COLS)
+    // Same column set the list was read with, so the updated row comes back
+    // shaped like its neighbours.
+    .select([INGREDIENT_COLS, ...(workingCols ?? [])].join(', '))
     .single()
   if (error) throw error
   const bits = []
@@ -133,18 +160,22 @@ export const UNITS = ['kg', 'g', 'L', 'ml', 'pieces', 'packs', 'bottle', 'box', 
 // Add a new stock item to the catalog. Staff AND admin may do this directly
 // (per Lexi/John): a new item starts at qty 0 / cost ₱0, so it has no
 // financial impact — counts and purchases still follow their own rules.
-export async function addIngredient({ name, unit, minThreshold, mealTag, quantity }, actorId) {
+export async function addIngredient({ name, unit, minThreshold, mealTag, quantity, notes }, actorId) {
   const onHand = quantity === '' || quantity == null ? 0 : Number(quantity)
+  const row = {
+    name: name.trim(),
+    unit,
+    quantity: Number.isFinite(onHand) && onHand > 0 ? onHand : 0,
+    min_threshold: Number(minThreshold) || 0,
+    cost_per_unit: 0,
+    meal_tag: mealTag || null,
+  }
+  // Sent only when there's something to send: the add form hides the field
+  // until migration 13 has run, so this can't reach a column that isn't there.
+  if (notes?.trim()) row.notes = notes.trim()
   const { data, error } = await supabase
     .from('ingredients')
-    .insert({
-      name: name.trim(),
-      unit,
-      quantity: Number.isFinite(onHand) && onHand > 0 ? onHand : 0,
-      min_threshold: Number(minThreshold) || 0,
-      cost_per_unit: 0,
-      meal_tag: mealTag || null,
-    })
+    .insert(row)
     .select(INGREDIENT_COLS)
     .single()
   if (error) throw error

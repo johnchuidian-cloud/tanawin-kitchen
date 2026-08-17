@@ -104,6 +104,14 @@ export default function CountStock() {
           {selected ? (
             <div className="note" style={{ marginTop: 0, marginBottom: 13 }}>
               Currently on record: <b>{fmtQty(selected.quantity)} {shortUnit(selected.unit)}</b>
+              {/* The pack size, in front of whoever is standing at the shelf
+                  counting — which is the moment it's actually needed. */}
+              {selected.notes ? (
+                <>
+                  <br />
+                  📝 {selected.notes}
+                </>
+              ) : null}
             </div>
           ) : null}
 

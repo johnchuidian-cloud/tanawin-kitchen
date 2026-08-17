@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { addIngredient, learnAlias, UNITS, MEAL_TAGS, shortUnit } from '../lib/inventory.js'
 import { findExisting, englishSuggestion } from '../lib/ingredient-match.js'
 
-const BLANK = { name: '', unit: 'kg', quantity: '', minThreshold: '', mealTag: '' }
+const BLANK = { name: '', unit: 'kg', quantity: '', minThreshold: '', mealTag: '', notes: '' }
 
 /**
  * Add a stock item from anywhere — the Inventory page or straight out of an
@@ -162,6 +162,20 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
           ))}
         </select>
       </div>
+
+      {/* Only offered once migration 13 has run — checked against the list we
+          were handed rather than assumed. */}
+      {(items ?? []).some((i) => 'notes' in i) ? (
+        <div className="field">
+          <label>Note (optional)</label>
+          <textarea
+            rows={2}
+            value={form.notes}
+            onChange={(e) => set('notes', e.target.value)}
+            placeholder="e.g. 1 pack = 250 g"
+          />
+        </div>
+      ) : null}
 
       {!dupe ? (
         <button className="btn" type="button" disabled={saving} onClick={handleSubmit}>

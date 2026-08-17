@@ -20,7 +20,7 @@ import {
 import { fetchItemStatus, ageSummary } from '../lib/movements.js'
 
 const DOT = { low: 'lowd', mid: 'mid', ok: 'ok' }
-const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '', shelfLife: '' }
+const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '', shelfLife: '', notes: '' }
 
 /**
  * Shared fields for the add and edit forms.
@@ -30,7 +30,7 @@ const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: ''
  * them after each keystroke — losing the caret, and letting the name field's
  * autoFocus drag the cursor back up to "Item name" mid-typing.
  */
-function Fields({ ingredient, form, set, autoFocusName }) {
+function Fields({ ingredient, form, set, autoFocusName, hasShelfLife, hasNotes }) {
   return (
     <>
       <div className="field">
@@ -83,7 +83,7 @@ function Fields({ ingredient, form, set, autoFocusName }) {
           ))}
         </select>
       </div>
-      {ingredient && 'shelf_life_days' in ingredient ? (
+      {hasShelfLife ? (
         <div className="field">
           <label>Keeps for about (days, optional)</label>
           <input
@@ -105,6 +105,21 @@ function Fields({ ingredient, form, set, autoFocusName }) {
           placeholder="e.g. sibuyas, onions"
         />
       </div>
+      {hasNotes ? (
+        <div className="field">
+          <label>Note (optional)</label>
+          <textarea
+            rows={2}
+            value={form.notes}
+            onChange={(e) => set('notes', e.target.value)}
+            placeholder="e.g. 1 pack = 250 g · sold by the tray of 30 · big pack ~1kg"
+          />
+          <div className="note" style={{ marginTop: 6 }}>
+            Handy for pack sizes, since every product is different. Whoever counts this item sees it
+            on the Count Stock screen.
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }
@@ -143,6 +158,14 @@ export default function Inventory() {
   const canEdit = role === 'admin' || role === 'staff'
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  // Which optional columns this database actually has. Derived from the LIST
+  // rather than the individual row: a freshly added item comes back with the
+  // narrow column set, and gating per-row made its fields vanish until reload.
+  const has = (col) => (items ?? []).some((i) => col in i)
+  const hasNotes = has('notes')
+  const hasShelfLife = has('shelf_life_days')
+  const hasArchiving = has('archived_at')
+
   const archivedCount = (items ?? []).filter((i) => i.archived_at).length
   const shown = (items ?? [])
     .filter((i) => (showArchived ? i.archived_at : !i.archived_at))
@@ -167,6 +190,7 @@ export default function Inventory() {
       mealTag: i.meal_tag ?? '',
       aliases: (i.aliases ?? []).join(', '),
       shelfLife: i.shelf_life_days == null ? '' : String(i.shelf_life_days),
+      notes: i.notes ?? '',
     })
     setError('')
     setSuccess('')
@@ -320,6 +344,7 @@ export default function Inventory() {
                         {/* Plain, uncoloured: the app reports the age, the cook
                             decides what it means. */}
                         {age ? <div className="m">{age}</div> : null}
+                        {i.notes ? <div className="m">📝 {i.notes}</div> : null}
                       </div>
                       {editingId === i.id ? null : (
                         <>
@@ -371,7 +396,14 @@ export default function Inventory() {
                       <form className="edit-panel" onSubmit={(e) => handleUpdate(e, i)}>
                         {/* No autoFocus on edit: opening the panel to change a
                             reorder level shouldn't jump to the name field. */}
-                        <Fields ingredient={i} form={form} set={set} autoFocusName={false} />
+                        <Fields
+                          ingredient={i}
+                          form={form}
+                          set={set}
+                          autoFocusName={false}
+                          hasShelfLife={hasShelfLife}
+                          hasNotes={hasNotes}
+                        />
                         <div className="appr-actions">
                           <button className="btn green" type="submit" disabled={saving}>
                             {saving ? 'Saving…' : 'Save'}
@@ -389,7 +421,7 @@ export default function Inventory() {
                             archived_at absent means the buttons would just
                             throw, and a button that always fails is worse
                             than no button. */}
-                        {'archived_at' in i ? (
+                        {hasArchiving ? (
                         <>
                         <div className="note" style={{ marginTop: 12 }}>
                           {usage?.id !== i.id ? (

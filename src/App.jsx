@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import AppBar from './components/AppBar.jsx'
 import BottomNav from './components/BottomNav.jsx'
+import UpdateBanner from './components/UpdateBanner.jsx'
 import Login from './screens/Login.jsx'
 import Home from './screens/Home.jsx'
 import Inventory from './screens/Inventory.jsx'
@@ -37,6 +38,11 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* Above the bar and in the layout flow rather than floating over it, so
+          it can't cover a button someone is reaching for. Not shown on the
+          login screen — there's no work to lose there, and it would be the
+          first thing a cook saw at the start of a shift. */}
+      <UpdateBanner />
       <AppBar />
       <main className="screen">
         <Routes>

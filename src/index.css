@@ -39,6 +39,24 @@ body{
 }
 
 /* ---- app bar ---- */
+/* ---- "Update available" bar ----
+   Sits in the flow above the app bar, so it pushes content down rather than
+   covering anything. Never a modal, never auto-dismissing. */
+.update-banner{
+  display:flex;align-items:center;gap:10px;flex:none;
+  padding:9px 14px;background:var(--terra);color:#fff;
+  font-size:13px;font-weight:600;
+}
+.update-banner .ub-text{flex:1}
+.update-banner .ub-refresh{
+  background:#fff;color:var(--terra);border:none;border-radius:8px;
+  padding:6px 13px;font:inherit;font-weight:700;cursor:pointer;
+}
+.update-banner .ub-dismiss{
+  background:none;border:none;color:#fff;opacity:.85;
+  font-size:19px;line-height:1;cursor:pointer;padding:0 2px;
+}
+
 .appbar{
   background:var(--terra);color:var(--cream);
   padding:14px 20px 16px;display:flex;align-items:center;gap:10px;

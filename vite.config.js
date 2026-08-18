@@ -39,7 +39,13 @@ function buildStamp() {
       this.emitFile({
         type: 'asset',
         fileName: 'version.json',
-        source: JSON.stringify({ build: BUILD_ID }),
+        source: JSON.stringify({
+          build: BUILD_ID,
+          // Not used by the check (which compares `build` only) — it's there
+          // so anyone can ask the live site when it was last deployed without
+          // digging through Cloudflare.
+          builtAt: new Date().toISOString(),
+        }),
       })
     },
   }

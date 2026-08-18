@@ -37,6 +37,12 @@ export default function More() {
           </button>
         ))}
       </div>
+      {/* Which build this phone is actually running. When someone reports
+          something odd, this is the difference between guessing and knowing
+          whether they're on current code. */}
+      <div className="muted" style={{ textAlign: 'center', marginTop: 6 }}>
+        Build {typeof __BUILD_ID__ === 'string' ? __BUILD_ID__.slice(0, 7) : 'dev'}
+      </div>
     </>
   )
 }

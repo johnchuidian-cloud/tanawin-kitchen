@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import AddStockItem from '../components/AddStockItem.jsx'
@@ -143,6 +143,9 @@ export default function Inventory() {
   // Only one chart is ever mounted — 77 of them would be unreadable on a phone
   // and would hammer the database on every Inventory load.
   const [chartId, setChartId] = useState(null)
+  const [search, setSearch] = useState('')
+  // One ref per letter heading, so the A–Z rail can scroll to it.
+  const letterRefs = useRef({})
 
   useEffect(() => {
     let active = true
@@ -171,10 +174,39 @@ export default function Inventory() {
   const hasArchiving = has('archived_at')
 
   const archivedCount = (items ?? []).filter((i) => i.archived_at).length
+
+  // Aliases are searched too, so the Tagalog name a cook actually thinks in
+  // ("sibuyas") finds the item that's filed in English ("Onion").
+  const q = search.trim().toLowerCase()
+  const matches = (i) =>
+    !q ||
+    i.name.toLowerCase().includes(q) ||
+    (i.aliases ?? []).some((a) => a.toLowerCase().includes(q))
+
   const shown = (items ?? [])
     .filter((i) => (showArchived ? i.archived_at : !i.archived_at))
     .filter((i) => !mealFilter || i.meal_tag === mealFilter || i.meal_tag === 'both')
+    .filter(matches)
   const lowCount = shown.filter((i) => stockStatus(i) === 'low').length
+
+  // First letter of each item, for the section headings and the rail.
+  const letterOf = (i) => (/^[a-z]/i.test(i.name) ? i.name[0].toUpperCase() : '#')
+  const lettersPresent = new Set(shown.map(letterOf))
+  const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
+  const railLetters = [...(shown.some((i) => letterOf(i) === '#') ? ['#'] : []), ...ALPHABET]
+  // The rail is for scanning a long list. While searching, or on a short one,
+  // it's just clutter.
+  const showRail = !q && shown.length > 15
+
+  const jumpTo = (letter) => {
+    const el = letterRefs.current[letter]
+    if (!el) return
+    // Jump instantly for anyone who's asked for less motion — a long smooth
+    // scroll across 70-odd rows is exactly the kind of movement that setting
+    // exists to avoid.
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    el.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' })
+  }
 
   const startAdd = () => {
     setAdding(true)
@@ -282,10 +314,30 @@ export default function Inventory() {
 
       {items ? (
         <>
+          <div className="inv-search">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setEditingId(null)
+                setChartId(null)
+              }}
+              placeholder="Search items…"
+              aria-label="Search stock items"
+            />
+            {search ? (
+              <button className="inv-search-clear" aria-label="Clear search" onClick={() => setSearch('')}>
+                ×
+              </button>
+            ) : null}
+          </div>
+
           <div className="muted">
             {shown.length} {showArchived ? 'archived ' : ''}ingredient{shown.length === 1 ? '' : 's'}
             {!showArchived && lowCount > 0 ? ` · ${lowCount} below threshold` : ''}
             {mealFilter ? ' · filtered' : ''}
+            {q ? ` · matching “${search.trim()}”` : ''}
           </div>
 
           {/* Meal filter — "both" items always show */}
@@ -318,25 +370,56 @@ export default function Inventory() {
             ) : null}
           </div>
 
+          {/* A–Z rail. Hugs the right edge of the 480px app frame rather than
+              the viewport, so on a laptop it stays beside the list. */}
+          {showRail ? (
+            <nav className="az-rail" aria-label="Jump to letter">
+              {railLetters.map((l) => (
+                <button
+                  key={l}
+                  disabled={!lettersPresent.has(l)}
+                  onClick={() => jumpTo(l)}
+                  aria-label={`Jump to ${l}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </nav>
+          ) : null}
+
           {shown.length === 0 ? (
             <div className="placeholder">
               {/* An empty ARCHIVED view once read "No ingredients yet", which
                   looks like the whole inventory has vanished. */}
-              {showArchived
-                ? 'Nothing archived. Items you retire show up here, and you can bring them back any time.'
-                : mealFilter
-                  ? 'No items tagged for this meal yet.'
-                  : 'No ingredients yet — add your first stock item below.'}
+              {q
+                ? `Nothing matches “${search.trim()}”. Try part of the name, or the name you'd normally say for it.`
+                : showArchived
+                  ? 'Nothing archived. Items you retire show up here, and you can bring them back any time.'
+                  : mealFilter
+                    ? 'No items tagged for this meal yet.'
+                    : 'No ingredients yet — add your first stock item below.'}
             </div>
           ) : (
             <div className="card" style={{ marginTop: 6 }}>
-              {shown.map((i) => {
+              {shown.map((i, idx) => {
+                const letter = letterOf(i)
+                const startsLetter = idx === 0 || letterOf(shown[idx - 1]) !== letter
                 const level = stockStatus(i)
                 const isLow = level === 'low'
                 const tag = mealShort(i.meal_tag)
                 const age = ageSummary(status[i.id], i)
                 return (
                   <div key={i.id}>
+                    {startsLetter ? (
+                      <div
+                        className="letter-head"
+                        ref={(el) => {
+                          letterRefs.current[letter] = el
+                        }}
+                      >
+                        {letter}
+                      </div>
+                    ) : null}
                     <div className="row">
                       <span className={`dot ${DOT[level]}`}></span>
                       <div className="info">

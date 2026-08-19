@@ -39,6 +39,22 @@ body{
 }
 
 /* ---- app bar ---- */
+/* ---- stock chart ----
+   Scales to its container: same drawing on a 360px phone and on a laptop,
+   just bigger. No animation — it's a readout, not a reveal. */
+.stock-chart{padding:4px 2px 2px}
+.stock-chart-svg{width:100%;height:auto;display:block;margin:2px 0 4px;touch-action:manipulation}
+.chart-legend{
+  display:flex;flex-wrap:wrap;gap:10px;font-size:10.5px;color:var(--ink-soft);
+  margin:2px 2px 8px;align-items:center;
+}
+.chart-legend span{display:inline-flex;align-items:center;gap:4px}
+.chart-legend .lg-ring{
+  width:9px;height:9px;border-radius:50%;background:#FBF6EF;
+  border:2px solid var(--terra-soft);display:inline-block;
+}
+.chart-legend .lg-dot{width:7px;height:7px;border-radius:50%;background:var(--terra);display:inline-block}
+
 /* ---- "Update available" bar ----
    Sits in the flow above the app bar, so it pushes content down rather than
    covering anything. Never a modal, never auto-dismissing. */

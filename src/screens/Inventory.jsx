@@ -18,6 +18,7 @@ import {
   mealShort,
 } from '../lib/inventory.js'
 import { fetchItemStatus, ageSummary } from '../lib/movements.js'
+import StockChart from '../components/StockChart.jsx'
 
 const DOT = { low: 'lowd', mid: 'mid', ok: 'ok' }
 const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '', shelfLife: '', notes: '' }
@@ -139,6 +140,9 @@ export default function Inventory() {
   const [showArchived, setShowArchived] = useState(false)
   const [usage, setUsage] = useState(null) // what the open item would lose
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Only one chart is ever mounted — 77 of them would be unreadable on a phone
+  // and would hammer the database on every Inventory load.
+  const [chartId, setChartId] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -360,9 +364,12 @@ export default function Inventory() {
                             <span className={`pill ${isLow ? 'low' : 'ok'}`}>{isLow ? 'LOW' : 'OK'}</span>
                           )}
                           <button
-                            className="mini-btn"
-                            title="Stock history"
-                            onClick={() => navigate(`/history?item=${i.id}`)}
+                            className={`mini-btn ${chartId === i.id ? 'on' : ''}`}
+                            title="Stock chart"
+                            onClick={() => {
+                              setChartId(chartId === i.id ? null : i.id)
+                              setEditingId(null)
+                            }}
                           >
                             📈
                           </button>
@@ -392,6 +399,14 @@ export default function Inventory() {
                         </>
                       )}
                     </div>
+                    {chartId === i.id ? (
+                      <div className="edit-panel">
+                        <StockChart ingredient={i} />
+                        <button className="btn ghost" onClick={() => navigate(`/history?item=${i.id}`)}>
+                          Day-by-day list
+                        </button>
+                      </div>
+                    ) : null}
                     {editingId === i.id ? (
                       <form className="edit-panel" onSubmit={(e) => handleUpdate(e, i)}>
                         {/* No autoFocus on edit: opening the panel to change a

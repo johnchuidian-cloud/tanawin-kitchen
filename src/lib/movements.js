@@ -177,6 +177,40 @@ export async function fetchItemHistory(ingredientId, days = 30) {
   }
 }
 
+/**
+ * When was this item's unit last changed?
+ *
+ * Changing a unit doesn't convert the quantity — deliberately, since only a
+ * person knows whether "2" meant kilos or grams. The consequence for a chart
+ * is that numbers either side of the change mean different things: Carrots
+ * read 300 (g) before 6 Aug and 0.3 (kg) after. Drawing those on one line
+ * shows a collapse that never happened, so the chart starts AFTER the change.
+ *
+ * The record lives in the activity log rather than in stock_movements — a
+ * unit change isn't a stock movement, and 23 of them predate this feature.
+ */
+export async function fetchLastUnitChange(ingredientId) {
+  const { data, error } = await supabase
+    .from('activity_log')
+    .select('action, created_at')
+    .eq('detail->>type', 'ingredient_update')
+    .eq('detail->>ingredient_id', ingredientId)
+    .like('action', '%unit %')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) {
+    console.warn('unit-change lookup failed:', error.message)
+    return null
+  }
+  return data?.[0] ?? null
+}
+
+// "pieces → kg" out of "Stock item updated — Onion (unit pieces → kg; min …)"
+export function describeUnitChange(entry) {
+  const m = /\(unit ([^;,)]+)/.exec(entry?.action ?? '')
+  return m ? m[1].trim() : null
+}
+
 const dayKey = (d) => {
   const dt = d instanceof Date ? d : new Date(d)
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(

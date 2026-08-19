@@ -12,7 +12,7 @@ export const MEAL_TAGS = [
 export const mealShort = (tag) => MEAL_TAGS.find((m) => m.key === tag)?.short ?? null
 
 const INGREDIENT_COLS =
-  'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, aliases, supplier:suppliers(name)'
+  'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, aliases, supplier_id, supplier:suppliers(name)'
 
 /**
  * Columns added by later migrations, OLDEST FIRST:

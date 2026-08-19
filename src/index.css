@@ -39,6 +39,23 @@ body{
 }
 
 /* ---- app bar ---- */
+/* ---- supplier → items picker ---- */
+.item-pick{
+  max-height:270px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;
+  background:#fff;padding:2px 4px;
+}
+.pick-row{
+  display:flex;align-items:center;gap:9px;padding:7px 5px;
+  border-bottom:1px dashed var(--line);cursor:pointer;
+}
+.pick-row:last-child{border-bottom:none}
+.pick-row input{width:17px;height:17px;flex:none;accent-color:var(--terra)}
+.pick-name{font-size:13.5px;color:var(--ink);flex:1}
+.pick-unit{font-size:11px;color:var(--ink-soft);margin-left:4px}
+.pick-note{
+  display:block;font-size:10.5px;color:var(--terra-soft);font-weight:600;margin-top:1px;
+}
+
 /* ---- inventory search + A–Z rail ---- */
 .inv-search{position:relative;margin:10px 0 4px}
 .inv-search input{

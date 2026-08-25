@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { fetchAllRows } from './paginate.js'
 import { logActivity } from './activity.js'
 import { recordMovement } from './movements.js'
 
@@ -72,16 +73,22 @@ export async function fetchIngredients({ includeArchived = false } = {}) {
   let lastError = null
   for (const cols of candidates) {
     const select = [INGREDIENT_COLS, ...cols].join(', ')
-    let q = supabase.from('ingredients').select(select).order('name')
-    // Only filter on a column we're actually asking for, or the filter itself
-    // becomes the thing that fails.
-    if (!includeArchived && cols.includes('archived_at')) q = q.is('archived_at', null)
-    const { data, error } = await q
-    if (!error) {
+    try {
+      // Paged: the catalogue is 80 items today and grows slowly, but this is
+      // read on nearly every screen and truncating it at 1000 would silently
+      // hide stock rather than fail.
+      const data = await fetchAllRows(() => {
+        let q = supabase.from('ingredients').select(select).order('name')
+        // Only filter on a column we're actually asking for, or the filter
+        // itself becomes the thing that fails.
+        if (!includeArchived && cols.includes('archived_at')) q = q.is('archived_at', null)
+        return q
+      })
       workingCols = cols
-      return data ?? []
+      return data
+    } catch (error) {
+      lastError = error
     }
-    lastError = error
   }
   throw lastError
 }

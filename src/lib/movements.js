@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { fetchAllRows } from './paginate.js'
 
 // ---------------------------------------------------------------------------
 // STOCK MOVEMENT HISTORY
@@ -68,29 +69,43 @@ export async function recordMovement({
 // Ages — "counted 4d ago", "restocked yesterday"
 // ---------------------------------------------------------------------------
 
+// The only kinds the age line reads. Asking for the rest inflates this result
+// by up to 3x for nothing — and it's a read with a hard ceiling (below).
+const AGE_KINDS = ['count', 'purchase', 'add']
+
 /**
- * Latest movement per item per kind, from the stock_item_status view. One
- * small query (a few hundred rows at most) instead of paging the whole
- * ledger down to a phone.
+ * Latest movement per item per kind, from the stock_item_status view.
+ *
+ * This one grows with the SIZE OF THE KITCHEN rather than with time: one row
+ * per item per kind. Today that's 132 rows for 80 items, but only because
+ * `use` and `waste` are barely recorded yet — once they are, it approaches one
+ * row per kind per item. Unpaginated it would silently truncate at 1000 (~330
+ * items), and ages would simply stop appearing for whichever items fell off
+ * the end, with no error anywhere.
  *
  * Returns { [ingredientId]: { count: {at, qtyAfter}, purchase: {...}, … } }.
  */
 export async function fetchItemStatus() {
-  const { data, error } = await supabase
-    .from('stock_item_status')
-    .select('ingredient_id, kind, occurred_at, qty_after')
-  if (error) {
+  try {
+    const data = await fetchAllRows(() =>
+      supabase
+        .from('stock_item_status')
+        .select('ingredient_id, kind, occurred_at, qty_after')
+        .in('kind', AGE_KINDS)
+        .order('ingredient_id')
+    )
+    const map = {}
+    for (const r of data) {
+      map[r.ingredient_id] ??= {}
+      map[r.ingredient_id][r.kind] = { at: r.occurred_at, qtyAfter: r.qty_after }
+    }
+    return map
+  } catch (error) {
     // The view is missing until the migration runs — the rest of the screen
     // still works, it just shows no ages.
     console.warn('stock_item_status read failed (no ages shown):', error.message)
     return {}
   }
-  const map = {}
-  for (const r of data ?? []) {
-    map[r.ingredient_id] ??= {}
-    map[r.ingredient_id][r.kind] = { at: r.occurred_at, qtyAfter: r.qty_after }
-  }
-  return map
 }
 
 // Whole days elapsed, counted from midnight so "yesterday" means yesterday's
@@ -154,13 +169,17 @@ export async function fetchItemHistory(ingredientId, days = 30) {
   const sinceIso = since.toISOString()
 
   const [inWindow, opening] = await Promise.all([
-    supabase
-      .from('stock_movements')
-      .select(MOVEMENT_COLS)
-      .eq('ingredient_id', ingredientId)
-      .gte('occurred_at', sinceIso)
-      .order('occurred_at', { ascending: true })
-      .limit(1000),
+    // Paged rather than capped at 1000. One item over 90 days won't reach that
+    // today, but a silently truncated window would draw a chart that's simply
+    // wrong rather than one that's obviously missing.
+    fetchAllRows(() =>
+      supabase
+        .from('stock_movements')
+        .select(MOVEMENT_COLS)
+        .eq('ingredient_id', ingredientId)
+        .gte('occurred_at', sinceIso)
+        .order('occurred_at', { ascending: true })
+    ),
     supabase
       .from('stock_movements')
       .select('qty_after, occurred_at')
@@ -169,9 +188,10 @@ export async function fetchItemHistory(ingredientId, days = 30) {
       .order('occurred_at', { ascending: false })
       .limit(1),
   ])
-  if (inWindow.error) throw inWindow.error
+  // fetchAllRows returns rows directly and throws on failure, so there's no
+  // .error to check here — unlike the single-row opening-balance query.
   return {
-    movements: inWindow.data ?? [],
+    movements: inWindow,
     openingQty: opening.data?.[0]?.qty_after ?? null,
     since,
   }
@@ -189,7 +209,13 @@ export async function fetchItemHistory(ingredientId, days = 30) {
  * The record lives in the activity log rather than in stock_movements — a
  * unit change isn't a stock movement, and 23 of them predate this feature.
  */
+// Unit changes are rare and permanent, and the activity log has no index on
+// `detail`, so this filter is a scan that gets slower every month. Chart opens
+// are frequent and repetitive, so remember the answer for the session.
+const unitChangeCache = new Map()
+
 export async function fetchLastUnitChange(ingredientId) {
+  if (unitChangeCache.has(ingredientId)) return unitChangeCache.get(ingredientId)
   const { data, error } = await supabase
     .from('activity_log')
     .select('action, created_at')
@@ -200,9 +226,11 @@ export async function fetchLastUnitChange(ingredientId) {
     .limit(1)
   if (error) {
     console.warn('unit-change lookup failed:', error.message)
-    return null
+    return null // not cached — a transient failure shouldn't stick for the session
   }
-  return data?.[0] ?? null
+  const found = data?.[0] ?? null
+  unitChangeCache.set(ingredientId, found)
+  return found
 }
 
 // "pieces → kg" out of "Stock item updated — Onion (unit pieces → kg; min …)"

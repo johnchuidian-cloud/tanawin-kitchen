@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { fetchAllRows } from './paginate.js'
 
 // Finance categories that represent food/ingredient purchases worth pulling
 // into Kitchen. (Finance and Kitchen share the same Supabase project, so this
@@ -15,13 +16,20 @@ export const itemKey = normalize
 // is not an ingredient" (e.g. Transpo). Non-fatal on failure: the import list
 // still works without them, just with less auto-matching.
 export async function fetchItemMaps() {
-  const { data, error } = await supabase.from('finance_item_map').select('item_key, ingredient_id')
-  if (error) {
+  // Grows with every distinct item name Finance has ever sent — paged, because
+  // a truncated map would silently forget matches and re-ask about items the
+  // team has already sorted out.
+  let data
+  try {
+    data = await fetchAllRows(() =>
+      supabase.from('finance_item_map').select('item_key, ingredient_id')
+    )
+  } catch (error) {
     console.warn('finance_item_map read failed (no remembered matches):', error.message)
     return {}
   }
   const map = {}
-  for (const r of data ?? []) map[r.item_key] = r.ingredient_id
+  for (const r of data) map[r.item_key] = r.ingredient_id
   return map
 }
 

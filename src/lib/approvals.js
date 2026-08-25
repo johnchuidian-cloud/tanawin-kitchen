@@ -1,21 +1,45 @@
 import { supabase } from './supabase.js'
+import { fetchAllRows } from './paginate.js'
 import { logActivity } from './activity.js'
 import { replaceRecipeIngredients } from './recipes.js'
 import { applyPurchase } from './purchases.js'
 
-// All approval requests, newest first, with requester + resolver names.
-// (approvals has two FKs to kitchen_users, so the relationship is named.)
-export async function fetchApprovals() {
-  const { data, error } = await supabase
-    .from('approvals')
-    .select(
-      'id, change_type, summary, payload, status, requested_at, resolved_at, ' +
-        'requester:kitchen_users!approvals_requested_by_fkey(name), ' +
-        'resolver:kitchen_users!approvals_resolved_by_fkey(name)'
-    )
-    .order('requested_at', { ascending: false })
-  if (error) throw error
-  return data ?? []
+const APPROVAL_COLS =
+  'id, change_type, summary, payload, status, requested_at, resolved_at, ' +
+  'requester:kitchen_users!approvals_requested_by_fkey(name), ' +
+  'resolver:kitchen_users!approvals_resolved_by_fkey(name)'
+
+/**
+ * Approval requests: everything still pending, plus a few recently resolved.
+ *
+ * This used to read the WHOLE table on every visit. Resolved requests are
+ * never deleted, so that grows forever — and each row carries a `payload`
+ * holding the full before-and-after of a costing grid or ingredient list. The
+ * screen only ever shows eight resolved rows, so the rest was fetched, parsed
+ * and thrown away; past 1000 rows it would also have started silently dropping
+ * history.
+ *
+ * Pending is paged rather than capped: an unnoticed backlog is exactly the
+ * case where you must not lose rows.
+ */
+export async function fetchApprovals({ resolvedLimit = 8 } = {}) {
+  const [pending, resolved] = await Promise.all([
+    fetchAllRows(() =>
+      supabase
+        .from('approvals')
+        .select(APPROVAL_COLS)
+        .eq('status', 'pending')
+        .order('requested_at', { ascending: false })
+    ),
+    supabase
+      .from('approvals')
+      .select(APPROVAL_COLS)
+      .neq('status', 'pending')
+      .order('requested_at', { ascending: false })
+      .limit(resolvedLimit),
+  ])
+  if (resolved.error) throw resolved.error
+  return [...pending, ...(resolved.data ?? [])]
 }
 
 // Staff path: queue a recipe edit for Lexi to approve. Nothing changes yet.

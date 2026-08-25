@@ -92,7 +92,10 @@ export async function fetchItemStatus() {
         .from('stock_item_status')
         .select('ingredient_id, kind, occurred_at, qty_after')
         .in('kind', AGE_KINDS)
+        // Fully unique sort. Paging on a non-unique order lets rows with equal
+        // keys land either side of a page boundary and go missing entirely.
         .order('ingredient_id')
+        .order('kind')
     )
     const map = {}
     for (const r of data) {
@@ -179,6 +182,7 @@ export async function fetchItemHistory(ingredientId, days = 30) {
         .eq('ingredient_id', ingredientId)
         .gte('occurred_at', sinceIso)
         .order('occurred_at', { ascending: true })
+        .order('id') // same-second movements are common; paging needs a unique order
     ),
     supabase
       .from('stock_movements')

@@ -30,6 +30,7 @@ export async function fetchApprovals({ resolvedLimit = 8 } = {}) {
         .select(APPROVAL_COLS)
         .eq('status', 'pending')
         .order('requested_at', { ascending: false })
+        .order('id')
     ),
     supabase
       .from('approvals')

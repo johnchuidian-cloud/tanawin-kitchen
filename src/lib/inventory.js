@@ -78,7 +78,7 @@ export async function fetchIngredients({ includeArchived = false } = {}) {
       // read on nearly every screen and truncating it at 1000 would silently
       // hide stock rather than fail.
       const data = await fetchAllRows(() => {
-        let q = supabase.from('ingredients').select(select).order('name')
+        let q = supabase.from('ingredients').select(select).order('name').order('id')
         // Only filter on a column we're actually asking for, or the filter
         // itself becomes the thing that fails.
         if (!includeArchived && cols.includes('archived_at')) q = q.is('archived_at', null)

@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https:; font-src 'self'; connect-src 'self' https://gzijmkzwnfebgaqxcrbh.supabase.co; frame-src https://www.youtube.com https://www.youtube-nocookie.com; form-action 'self'
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https:; font-src 'self'; connect-src 'self' https://gzijmkzwnfebgaqxcrbh.supabase.co; frame-src https://www.youtube.com https://www.youtube-nocookie.com; form-action 'self'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
@@ -25,11 +25,14 @@
 #                          for the how-it's-made video.
 #   no font-src beyond self, no data:, no worker-src — nothing uses them.
 #
-# ⚠️ REPORT-ONLY on purpose. Per the work order: never ship an enforcing CSP
-# straight to an app the team uses mid-service. This logs violations to the
-# console and breaks nothing. Once every screen and role has been clicked
-# through with a clean console, rename the header to `Content-Security-Policy`
-# in a second deploy.
+# ENFORCING as of 2026-09-01, in a second deploy after the report-only one.
+# Cleared first in two independent passes: locally against the built bundle
+# with the policy enforcing (13 routes, plus positive and negative controls —
+# a jsdelivr script blocked, proving it wasn't silently inert), then on the
+# live site report-only as admin and as guest. Zero violations in all of them.
+#
+# If a screen ever breaks after a change here, put `-Report-Only` back on the
+# header name and redeploy — that's the whole rollback.
 #
 # The other four headers are enforcing from the start — they can't break a
 # screen the way a wrong CSP can.

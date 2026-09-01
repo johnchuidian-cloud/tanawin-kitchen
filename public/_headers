@@ -1,0 +1,36 @@
+/*
+  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https:; font-src 'self'; connect-src 'self' https://gzijmkzwnfebgaqxcrbh.supabase.co; frame-src https://www.youtube.com https://www.youtube-nocookie.com; form-action 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+# ---------------------------------------------------------------------------
+# Built from what Kitchen actually loads, checked against the source:
+#
+#   script-src 'self'      the built index.html has no inline script — Vite
+#                          emits one same-origin module and one stylesheet
+#   style-src  'unsafe-inline'
+#                          REQUIRED, and the one loose directive here. There
+#                          are 110 `style={{…}}` attributes across the screens,
+#                          and CSP blocks inline style attributes without it.
+#                          Removing it is a real refactor, not a header edit.
+#   img-src    https:      recipe `image_url` is a link Lexi pastes, so it can
+#                          be any host. No recipe uses one today; the field is
+#                          there, and a silently blank image would be a
+#                          confusing bug. Images can't execute.
+#   connect-src            Supabase REST only. Kitchen uses no realtime, so no
+#                          wss: is needed — verified, not assumed.
+#   frame-src  youtube     RecipeDetail embeds https://www.youtube.com/embed/…
+#                          for the how-it's-made video.
+#   no font-src beyond self, no data:, no worker-src — nothing uses them.
+#
+# ⚠️ REPORT-ONLY on purpose. Per the work order: never ship an enforcing CSP
+# straight to an app the team uses mid-service. This logs violations to the
+# console and breaks nothing. Once every screen and role has been clicked
+# through with a clean console, rename the header to `Content-Security-Policy`
+# in a second deploy.
+#
+# The other four headers are enforcing from the start — they can't break a
+# screen the way a wrong CSP can.
+# ---------------------------------------------------------------------------

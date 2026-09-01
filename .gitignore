@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Secrets. `.env.local` was already covered by `*.local` above, which is why
+# nothing has leaked — but a plain `.env` or `.env.production` would not have
+# been, and that's one careless `cp` away.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -51,10 +51,45 @@ function buildStamp() {
   }
 }
 
+/**
+ * The production CSP, mirrored onto `vite preview` so it can be exercised
+ * locally before it reaches anyone.
+ *
+ * `public/_headers` is the real source — Cloudflare applies it, Vite doesn't —
+ * so these two must be kept in step. It's applied here as ENFORCING even
+ * though it ships report-only first: locally a violation should break loudly,
+ * which is the whole point of testing it here rather than on a cook's phone.
+ *
+ * Deliberately NOT on `server` (dev): Vite's HMR needs inline scripts and a
+ * websocket, so the production policy would block dev rather than test it.
+ */
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' https:",
+  "font-src 'self'",
+  "connect-src 'self' https://gzijmkzwnfebgaqxcrbh.supabase.co",
+  'frame-src https://www.youtube.com https://www.youtube-nocookie.com',
+  "form-action 'self'",
+].join('; ')
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), buildStamp()],
   define: {
     __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
+  preview: {
+    headers: {
+      'Content-Security-Policy': CSP,
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'X-Frame-Options': 'DENY',
+      'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    },
   },
 })

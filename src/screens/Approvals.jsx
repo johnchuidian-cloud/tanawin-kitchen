@@ -93,7 +93,7 @@ export default function Approvals() {
                       </button>
                     </div>
                   ) : (
-                    <div className="note">Only Lexi can approve or reject.</div>
+                    <div className="note">Only the owner can approve or reject.</div>
                   )}
                 </div>
               ))}

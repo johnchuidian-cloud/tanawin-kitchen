@@ -96,7 +96,7 @@ export default function RecipeCostingEdit() {
         setDone('Saved — costing updated. Tap Recalculate on the recipe to commit the new tier costs.')
       } else {
         await submitCostingEdit(recipe, parsed, before, summary, currentUser.id)
-        setDone('Sent to Lexi for approval ⏳')
+        setDone('Sent to the owner for approval ⏳')
       }
     } catch (err) {
       setError(err.message || 'Could not save. Try again.')
@@ -138,7 +138,7 @@ export default function RecipeCostingEdit() {
       <h2 className="title">Edit costing</h2>
       <div className="muted">
         How much to use and what it costs, per size — gas and overheads count too.{' '}
-        {role === 'admin' ? 'Changes apply immediately.' : 'Changes go to Lexi for approval.'}
+        {role === 'admin' ? 'Changes apply immediately.' : 'Changes go to the owner for approval.'}
       </div>
 
       {error ? <div className="error" style={{ marginTop: 12 }}>{error}</div> : null}

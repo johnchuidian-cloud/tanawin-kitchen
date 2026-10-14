@@ -139,7 +139,7 @@ export default function FinanceImport({ ingredients, direct, currentUser, onChan
       setMsg(
         direct
           ? `Imported ${entry.item} as ${ing.name} — remembered for next time.`
-          : `Sent ${entry.item} (${ing.name}) to Lexi for approval — match remembered.`
+          : `Sent ${entry.item} (${ing.name}) to the owner for approval — match remembered.`
       )
       onChange?.()
     } catch (err) {

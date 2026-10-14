@@ -202,7 +202,7 @@ export default function Login() {
                 </button>
               ) : (
                 <div className="note" style={{ textAlign: 'center' }}>
-                  Forgot your PIN? Ask Lexi to reset it.
+                  Forgot your PIN? Ask the owner to reset it.
                 </div>
               )}
             </>

@@ -121,7 +121,7 @@ export default function RecipeIngredientsEdit() {
         setDone('Saved — ingredients updated. Tap Recalculate on the recipe to commit the new cost.')
       } else {
         await submitIngredientsEdit(recipe, after, before, summary, currentUser.id)
-        setDone('Sent to Lexi for approval ⏳')
+        setDone('Sent to the owner for approval ⏳')
       }
     } catch (err) {
       setError(err.message || 'Could not save. Try again.')
@@ -163,7 +163,7 @@ export default function RecipeIngredientsEdit() {
       <h2 className="title">Edit ingredients</h2>
       <div className="muted">
         Fixed batch: {recipe.pax_tier} pax ·{' '}
-        {role === 'admin' ? 'changes apply immediately' : 'changes go to Lexi for approval'}
+        {role === 'admin' ? 'changes apply immediately' : 'changes go to the owner for approval'}
       </div>
 
       {error ? <div className="error" style={{ marginTop: 12 }}>{error}</div> : null}

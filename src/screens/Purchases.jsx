@@ -128,7 +128,7 @@ export default function Purchases() {
         await loadRecent()
       } else {
         await submitPurchase(purchase, summary, currentUser.id)
-        setSuccess('Sent to Lexi for approval ⏳')
+        setSuccess('Sent to the owner for approval ⏳')
       }
       setQuantity('')
       setTotalCost('')
@@ -275,7 +275,7 @@ export default function Purchases() {
               <div className="note">
                 {direct
                   ? 'Recording a purchase updates stock and the cost record immediately.'
-                  : 'Restock entries affect cost records, so they route to Lexi for approval.'}
+                  : 'Restock entries affect cost records, so they route to the owner for approval.'}
               </div>
             </form>
           )}

@@ -158,7 +158,7 @@ export default function CountStock() {
             {saving ? 'Saving…' : 'Save count'}
           </button>
           <div className="note">
-            This is logged with your name and time, but doesn't need Lexi's approval.
+            This is logged with your name and time, but doesn't need the owner's approval.
           </div>
         </form>
       ) : null}

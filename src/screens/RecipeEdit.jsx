@@ -99,7 +99,7 @@ export default function RecipeEdit() {
         setDone('Saved — changes applied.')
       } else {
         await submitRecipeEdit(recipe, changes, before, summary, currentUser.id)
-        setDone('Sent to Lexi for approval ⏳')
+        setDone('Sent to the owner for approval ⏳')
       }
     } catch (err) {
       setError(err.message || 'Could not save. Try again.')
@@ -142,7 +142,7 @@ export default function RecipeEdit() {
       <div className="muted">
         {role === 'admin'
           ? 'Your changes apply immediately.'
-          : 'Changes are sent to Lexi for approval before they take effect.'}
+          : 'Changes are sent to the owner for approval before they take effect.'}
       </div>
 
       {error ? <div className="error" style={{ marginTop: 12 }}>{error}</div> : null}

@@ -263,7 +263,7 @@ export default function RecipeDetail() {
         </>
       ) : (
         <div className="placeholder">
-          No costing yet — add Lexi-style peso lines via "Edit costing", or ingredient quantities
+          No costing yet — add peso cost lines via "Edit costing", or ingredient quantities
           via "Edit ingredients".
         </div>
       )}
@@ -424,7 +424,7 @@ export default function RecipeDetail() {
             "Cooked this?" appear and takes things out of stock. Filling in both is worth it; they
             do different jobs. Prices mirror the Tanawin Menu and only change by hand (via Edit
             recipe
-            {role === 'admin' ? '' : ", with Lexi's approval"}). Recalculate only runs when you tap
+            {role === 'admin' ? '' : ", with the owner's approval"}). Recalculate only runs when you tap
             it — costs never shift on their own.
           </div>
 

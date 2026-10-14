@@ -68,6 +68,6 @@ captured against an in-memory demo build (`VITE_DEMO=1`), never the real data.
     <td align="center" width="25%"><img src="docs/screenshots/05-approvals-admin.png" width="200"><br>Owner approval queue</td>
     <td align="center" width="25%"><img src="docs/screenshots/06-stock-chart.png" width="200"><br>Per-item stock history chart</td>
     <td align="center" width="25%"><img src="docs/screenshots/07-recipe-staff.png" width="200"><br>Staff view: log a cooked dish, edits need approval</td>
-    <td align="center" width="25%"></td>
+    <td align="center" width="25%"><img src="docs/screenshots/08-waste-other.png" width="200"><br>Waste &amp; spoilage log, with a free-text reason</td>
   </tr>
 </table>

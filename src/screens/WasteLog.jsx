@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import IngredientSelect from '../components/IngredientSelect.jsx'
 import { fetchIngredients, fmtQty, shortUnit } from '../lib/inventory.js'
-import { fetchWaste, logWaste, WASTE_REASONS } from '../lib/waste.js'
+import { fetchWaste, logWaste, WASTE_REASONS, WASTE_OTHER } from '../lib/waste.js'
 
 function timeAgo(iso) {
   const then = new Date(iso).getTime()
@@ -27,6 +27,7 @@ export default function WasteLog() {
   const [ingredientId, setIngredientId] = useState('')
   const [qty, setQty] = useState('')
   const [reason, setReason] = useState(WASTE_REASONS[0])
+  const [otherReason, setOtherReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -61,11 +62,17 @@ export default function WasteLog() {
       setError('Enter how much was wasted (more than 0).')
       return
     }
+    const finalReason = reason === WASTE_OTHER ? otherReason.trim() : reason
+    if (reason === WASTE_OTHER && !finalReason) {
+      setError('Type the reason for the waste.')
+      return
+    }
     setSaving(true)
     try {
-      await logWaste(selected, value, reason, currentUser.id)
-      setSuccess(`Logged — ${fmtQty(value)} ${shortUnit(selected.unit)} of ${selected.name} (${reason}).`)
+      await logWaste(selected, value, finalReason, currentUser.id)
+      setSuccess(`Logged — ${fmtQty(value)} ${shortUnit(selected.unit)} of ${selected.name} (${finalReason}).`)
       setQty('')
+      setOtherReason('')
       await loadWaste()
     } catch (err) {
       setError(err.message || 'Could not log the waste. Try again.')
@@ -147,6 +154,18 @@ export default function WasteLog() {
                   ))}
                 </select>
               </div>
+              {reason === WASTE_OTHER ? (
+                <div className="field">
+                  <label>What happened?</label>
+                  <input
+                    type="text"
+                    maxLength={120}
+                    value={otherReason}
+                    onChange={(e) => setOtherReason(e.target.value)}
+                    placeholder="e.g. dropped on the floor"
+                  />
+                </div>
+              ) : null}
               <button className="btn green" type="submit" disabled={saving}>
                 {saving ? 'Logging…' : 'Log waste'}
               </button>

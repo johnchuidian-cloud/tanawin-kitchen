@@ -3,7 +3,11 @@ import { logActivity } from './activity.js'
 import { recordMovement } from './movements.js'
 import { fmtQty, shortUnit } from './inventory.js'
 
-export const WASTE_REASONS = ['Spoilage', 'Prep error', 'Expired', 'Over-portioned']
+export const WASTE_REASONS = ['Spoilage', 'Prep error', 'Expired', 'Over-portioned', 'Other']
+
+// Sentinel: when the picker shows this, the UI asks for a typed-in reason and
+// stores THAT text (not the word "Other") in the log.
+export const WASTE_OTHER = 'Other'
 
 // Recent waste entries, with the ingredient and who logged it.
 export async function fetchWaste(limit = 30) {

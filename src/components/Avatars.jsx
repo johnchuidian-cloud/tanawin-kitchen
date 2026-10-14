@@ -9,7 +9,7 @@ function Lexi() {
   // little leaves; a nod to the starburst over the Tanawin "i".
   const petals = [0, 45, 90, 135, 180, 225, 270, 315]
   return (
-    <svg viewBox="0 0 40 40" aria-label="Lexi">
+    <svg viewBox="0 0 40 40" aria-hidden="true">
       <circle cx="20" cy="20" r="20" fill="#F1E4D6" />
       <path d="M12 30.5 C8.5 29.5 7 26.5 7.5 24 C11 24.5 13 27 13.2 29.8 Z" fill="#5F7A5F" />
       <path d="M28 30.5 C31.5 29.5 33 26.5 32.5 24 C29 24.5 27 27 26.8 29.8 Z" fill="#5F7A5F" />
@@ -35,7 +35,7 @@ function Lexi() {
 function Monique() {
   // Chef — long dark hair tucked in a hairnet, whites underneath.
   return (
-    <svg viewBox="0 0 40 40" aria-label="Monique">
+    <svg viewBox="0 0 40 40" aria-hidden="true">
       <circle cx="20" cy="20" r="20" fill="#F5EDE4" />
       <path d="M10.5 15.5 C10.5 6.5 29.5 6.5 29.5 15.5 L29.5 30 C29.5 33.4 25.7 33.4 25.7 30 L25.7 18 L14.3 18 L14.3 30 C14.3 33.4 10.5 33.4 10.5 30 Z" fill="#3E2723" />
       <circle cx="20" cy="18.5" r="8.3" fill="#EDBE96" />
@@ -55,7 +55,7 @@ function Monique() {
 function Disang() {
   // Chef — pixie cut, chef whites with collar buttons.
   return (
-    <svg viewBox="0 0 40 40" aria-label="Disang">
+    <svg viewBox="0 0 40 40" aria-hidden="true">
       <circle cx="20" cy="20" r="20" fill="#F5EDE4" />
       <circle cx="20" cy="19" r="8.3" fill="#E8B080" />
       <path d="M11.6 19.5 C10.6 9 26 6.2 28.6 13.6 C29.4 16 28.8 18.6 28.3 19.8 C27.6 16.6 26.6 15 25.4 13.8 C21.8 15.4 15.4 15 13.6 13.2 C12.4 14.8 12 17 11.6 19.5 Z" fill="#2E1B12" />
@@ -79,8 +79,11 @@ const PORTRAITS = { lexi: Lexi, monique: Monique, disang: Disang }
 
 export default function Avatar({ name, role, className }) {
   const Portrait = PORTRAITS[(name || '').trim().toLowerCase()]
+  // The accessible label comes from the live `name` (the person's stored
+  // name), never a hard-coded string — so no real name lives in the source.
+  // The portrait SVGs themselves are aria-hidden; this span carries the name.
   return (
-    <span className={className}>
+    <span className={className} role={Portrait ? 'img' : undefined} aria-label={Portrait ? name : undefined}>
       {Portrait ? <Portrait /> : ROLE_EMOJI[role] ?? '👤'}
     </span>
   )

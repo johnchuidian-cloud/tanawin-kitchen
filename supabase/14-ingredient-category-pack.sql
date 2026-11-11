@@ -27,8 +27,10 @@ alter table ingredients add column if not exists pack_unit text;
 
 -- Pack sizes from notes like "1 pack = 300 g". Only items counted in
 -- containers; an item counted in kg doesn't need one.
+-- \s{0,} is \s* written without an asterisk: this SQL is sent to the owner
+-- by chat, and WhatsApp reads asterisks as bold and drops them.
 with parsed as (
-  select id, regexp_match(notes, '^\s*1\s*[a-z]+\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|g|ml|l)\s*$', 'i') as m
+  select id, regexp_match(notes, '^\s{0,}1\s{0,}[a-z]+\s{0,}=\s{0,}([0-9]+(?:\.[0-9]+)?)\s{0,}(kg|g|ml|l)\s{0,}$', 'i') as m
   from ingredients
   where pack_size is null and notes is not null and unit not in ('kg', 'g', 'L', 'ml')
 )

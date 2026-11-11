@@ -6,6 +6,8 @@ import {
   saveStockCount,
   shortUnit,
   fmtQty,
+  packLine,
+  visibleNote,
 } from '../lib/inventory.js'
 import { countLooksOff } from '../lib/units.js'
 
@@ -106,10 +108,16 @@ export default function CountStock() {
               Currently on record: <b>{fmtQty(selected.quantity)} {shortUnit(selected.unit)}</b>
               {/* The pack size, in front of whoever is standing at the shelf
                   counting — which is the moment it's actually needed. */}
-              {selected.notes ? (
+              {packLine(selected) ? (
                 <>
                   <br />
-                  📝 {selected.notes}
+                  📦 {packLine(selected)}
+                </>
+              ) : null}
+              {visibleNote(selected) ? (
+                <>
+                  <br />
+                  📝 {visibleNote(selected)}
                 </>
               ) : null}
             </div>

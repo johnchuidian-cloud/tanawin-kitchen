@@ -60,7 +60,7 @@ captured against an in-memory demo build (`VITE_DEMO=1`), never the real data.
 <table>
   <tr>
     <td align="center" width="25%"><img src="docs/screenshots/01-login.png" width="200"><br>Staff picks their name, PIN login</td>
-    <td align="center" width="25%"><img src="docs/screenshots/02-inventory-admin.png" width="200"><br>Inventory: search, A–Z jump, low-stock, ages</td>
+    <td align="center" width="25%"><img src="docs/screenshots/02-inventory-admin.png" width="200"><br>Inventory by category, pack sizes, low / out-of-stock row colours, CSV export</td>
     <td align="center" width="25%"><img src="docs/screenshots/03-recipes.png" width="200"><br>Recipes by category with price ranges</td>
     <td align="center" width="25%"><img src="docs/screenshots/04-recipe-costing-admin.png" width="200"><br>Per-size costing grid &amp; markup</td>
   </tr>

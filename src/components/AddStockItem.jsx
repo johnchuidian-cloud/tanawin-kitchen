@@ -2,8 +2,21 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { addIngredient, learnAlias, UNITS, MEAL_TAGS, shortUnit } from '../lib/inventory.js'
 import { findExisting, englishSuggestion } from '../lib/ingredient-match.js'
+import { CategoryField, PackSizeField } from './CategoryPackFields.jsx'
+import { resolveFormCategory } from '../lib/categories.js'
 
-const BLANK = { name: '', unit: 'kg', quantity: '', minThreshold: '', mealTag: '', notes: '' }
+const BLANK = {
+  name: '',
+  unit: 'kg',
+  quantity: '',
+  minThreshold: '',
+  mealTag: '',
+  notes: '',
+  category: '',
+  newCategory: '',
+  packSize: '',
+  packUnit: 'g',
+}
 
 /**
  * Add a stock item from anywhere — the Inventory page or straight out of an
@@ -31,12 +44,27 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
   }
 
   const suggestion = englishSuggestion(form.name)
+  // Category + pack size only once migration 14 has run — checked against the
+  // list we were handed rather than assumed.
+  const hasCategory = (items ?? []).some((i) => 'category' in i)
 
   const create = async () => {
-    setSaving(true)
     setError('')
+    const cat = hasCategory ? resolveFormCategory(form, items) : { category: null }
+    if (cat.error) {
+      setError(cat.error)
+      return
+    }
+    if (hasCategory && form.packSize !== '' && !(Number(form.packSize) > 0)) {
+      setError('The pack size should be a number above 0, or left blank.')
+      return
+    }
+    setSaving(true)
     try {
-      const created = await addIngredient(form, currentUser.id)
+      const created = await addIngredient(
+        hasCategory ? { ...form, category: cat.category } : { ...form, category: null, packSize: '' },
+        currentUser.id
+      )
       onAdded?.(created)
     } catch (err) {
       setError(err.message || 'Could not add the item. Try again.')
@@ -117,6 +145,7 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
         </div>
       ) : null}
 
+      {hasCategory ? <CategoryField form={form} set={set} items={items} /> : null}
       <div className="field">
         <label>Unit</label>
         <select value={form.unit} onChange={(e) => set('unit', e.target.value)}>
@@ -127,6 +156,7 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
           ))}
         </select>
       </div>
+      {hasCategory ? <PackSizeField form={form} set={set} /> : null}
       <div className="field">
         <label>Stock on hand now (optional)</label>
         <input
@@ -172,7 +202,7 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
             rows={2}
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
-            placeholder="e.g. 1 pack = 250 g"
+            placeholder={hasCategory ? 'e.g. sold by the tray of 30' : 'e.g. 1 pack = 250 g'}
           />
         </div>
       ) : null}

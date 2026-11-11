@@ -86,6 +86,53 @@ body{
   font-size:11px;font-weight:800;color:var(--terra-light);letter-spacing:.6px;
   padding:8px 4px 2px;border-bottom:1px solid var(--line);
 }
+.letter-head .group-count{font-weight:600;color:var(--ink-soft);letter-spacing:0}
+/* Category jump bar: emoji are wider and taller than letters, so a little
+   more room per button keeps them tappable. */
+.cat-rail button{font-size:15px;line-height:1.55;padding:1px 3px}
+
+/* ---- inventory rows: Item | Unit | Count | actions ----
+   Fixed widths for the three right-hand columns so the column labels line up
+   with every row; the item column takes whatever is left. */
+/* .row.inv-row, not .inv-row: the generic .row{display:flex} further down
+   would otherwise win on source order. */
+.inv-row,.row.inv-row{
+  display:grid;grid-template-columns:minmax(0,1fr) 58px 40px 46px;
+  gap:7px;align-items:center;
+}
+.row.inv-row.editing{grid-template-columns:minmax(0,1fr)}
+.inv-cols{
+  padding:0 6px 6px;font-size:9.5px;font-weight:800;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--line);
+}
+.inv-cols .r{text-align:right}
+.inv-card .row{padding:10px 6px}
+.inv-unit{font-size:11.5px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+.inv-row .qty{font-size:15px}
+/* Stacked: the item column is already 2–4 lines tall, so two buttons on top
+   of each other cost no height and leave the item name more width. */
+.inv-actions{display:flex;flex-direction:column;align-items:stretch;gap:5px}
+.inv-actions .mini-btn{padding:4px 0;text-align:center}
+/* Stock level as the row's own colour (the OK/LOW badge used to take a
+   column). OK rows stay plain. */
+.inv-row.lvl-low{background:#FBF0CC}
+.inv-row.lvl-out{background:#F9DDD5}
+.inv-row.lvl-low,.inv-row.lvl-out{border-radius:8px;border-bottom-color:transparent;margin:2px 0}
+
+/* Visible only to screen readers. */
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+
+.title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* ---- pack size field + export panel ---- */
+.pack-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px}
+.export-title{font-weight:700;font-size:14px;color:var(--ink);margin-bottom:2px}
+.export-panel .meal-filter{margin-top:8px}
+.export-dates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.export-dates .field{margin-bottom:6px}
 
 /* ---- stock chart ----
    Scales to its container: same drawing on a 360px phone and on a laptop,

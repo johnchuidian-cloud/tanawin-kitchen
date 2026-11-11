@@ -243,7 +243,8 @@ export function describeUnitChange(entry) {
   return m ? m[1].trim() : null
 }
 
-const dayKey = (d) => {
+// Local calendar date, YYYY-MM-DD — the phone's own day, not UTC's.
+export const dayKey = (d) => {
   const dt = d instanceof Date ? d : new Date(d)
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(
     dt.getDate()

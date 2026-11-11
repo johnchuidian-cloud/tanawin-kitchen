@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import AddStockItem from '../components/AddStockItem.jsx'
+import InventoryExport from '../components/InventoryExport.jsx'
+import { CategoryField, PackSizeField } from '../components/CategoryPackFields.jsx'
 import {
   fetchIngredients,
   updateIngredient,
@@ -10,18 +12,40 @@ import {
   archiveIngredient,
   unarchiveIngredient,
   deleteIngredient,
-  stockStatus,
-  shortUnit,
+  stockLevel,
+  unitLabel,
+  visibleNote,
   fmtQty,
   UNITS,
   MEAL_TAGS,
   mealShort,
 } from '../lib/inventory.js'
+import {
+  groupName,
+  categoryIcon,
+  categorySortKey,
+  railLabel,
+  resolveFormCategory,
+} from '../lib/categories.js'
 import { fetchItemStatus, ageSummary } from '../lib/movements.js'
 import StockChart from '../components/StockChart.jsx'
 
-const DOT = { low: 'lowd', mid: 'mid', ok: 'ok' }
-const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: '', shelfLife: '', notes: '' }
+// Read aloud by screen readers in place of the row colour, so the stock level
+// isn't carried by colour alone.
+const LEVEL_TEXT = { low: 'Low stock', out: 'Out of stock' }
+const BLANK = {
+  name: '',
+  unit: 'kg',
+  minThreshold: '',
+  mealTag: '',
+  aliases: '',
+  shelfLife: '',
+  notes: '',
+  category: '',
+  newCategory: '',
+  packSize: '',
+  packUnit: 'g',
+}
 
 /**
  * Shared fields for the add and edit forms.
@@ -31,7 +55,7 @@ const BLANK = { name: '', unit: 'kg', minThreshold: '', mealTag: '', aliases: ''
  * them after each keystroke — losing the caret, and letting the name field's
  * autoFocus drag the cursor back up to "Item name" mid-typing.
  */
-function Fields({ ingredient, form, set, autoFocusName, hasShelfLife, hasNotes }) {
+function Fields({ ingredient, form, set, autoFocusName, hasShelfLife, hasNotes, hasCategory, items }) {
   return (
     <>
       <div className="field">
@@ -43,6 +67,7 @@ function Fields({ ingredient, form, set, autoFocusName, hasShelfLife, hasNotes }
           autoFocus={autoFocusName}
         />
       </div>
+      {hasCategory ? <CategoryField form={form} set={set} items={items} /> : null}
       <div className="field">
         <label>Unit</label>
         <select value={form.unit} onChange={(e) => set('unit', e.target.value)}>
@@ -61,6 +86,7 @@ function Fields({ ingredient, form, set, autoFocusName, hasShelfLife, hasNotes }
           cost as “—” until you update it too.
         </div>
       ) : null}
+      {hasCategory ? <PackSizeField form={form} set={set} /> : null}
       <div className="field">
         <label>Reorder below (optional)</label>
         <input
@@ -113,11 +139,17 @@ function Fields({ ingredient, form, set, autoFocusName, hasShelfLife, hasNotes }
             rows={2}
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
-            placeholder="e.g. 1 pack = 250 g · sold by the tray of 30 · big pack ~1kg"
+            placeholder={
+              hasCategory
+                ? 'e.g. sold by the tray of 30 · big pack ~1kg, small ~400g'
+                : 'e.g. 1 pack = 250 g · sold by the tray of 30 · big pack ~1kg'
+            }
           />
           <div className="note" style={{ marginTop: 6 }}>
-            Handy for pack sizes, since every product is different. Whoever counts this item sees it
-            on the Count Stock screen.
+            {hasCategory
+              ? 'For anything the pack size can’t say on its own. '
+              : 'Handy for pack sizes, since every product is different. '}
+            Whoever counts this item sees it on the Count Stock screen.
           </div>
         </div>
       ) : null}
@@ -144,8 +176,10 @@ export default function Inventory() {
   // and would hammer the database on every Inventory load.
   const [chartId, setChartId] = useState(null)
   const [search, setSearch] = useState('')
-  // One ref per letter heading, so the A–Z rail can scroll to it.
-  const letterRefs = useRef({})
+  const [exporting, setExporting] = useState(false)
+  // One ref per group heading (category, or letter before migration 14), so
+  // the jump bar can scroll to it.
+  const groupRefs = useRef({})
 
   useEffect(() => {
     let active = true
@@ -172,6 +206,7 @@ export default function Inventory() {
   const hasNotes = has('notes')
   const hasShelfLife = has('shelf_life_days')
   const hasArchiving = has('archived_at')
+  const hasCategory = has('category')
 
   const archivedCount = (items ?? []).filter((i) => i.archived_at).length
 
@@ -183,23 +218,44 @@ export default function Inventory() {
     i.name.toLowerCase().includes(q) ||
     (i.aliases ?? []).some((a) => a.toLowerCase().includes(q))
 
+  // Grouped by food category once migration 14 is in; until then, by first
+  // letter exactly as before.
+  const letterOf = (i) => (/^[a-z]/i.test(i.name) ? i.name[0].toUpperCase() : '#')
+  const groupOf = hasCategory ? groupName : letterOf
+
   const shown = (items ?? [])
     .filter((i) => (showArchived ? i.archived_at : !i.archived_at))
     .filter((i) => !mealFilter || i.meal_tag === mealFilter || i.meal_tag === 'both')
     .filter(matches)
-  const lowCount = shown.filter((i) => stockStatus(i) === 'low').length
+    .sort((a, b) =>
+      hasCategory
+        ? categorySortKey(groupOf(a)).localeCompare(categorySortKey(groupOf(b))) ||
+          a.name.localeCompare(b.name)
+        : a.name.localeCompare(b.name)
+    )
+  const levelCount = (lvl) => (showArchived ? 0 : shown.filter((i) => stockLevel(i) === lvl).length)
+  const lowCount = levelCount('low')
+  const outCount = levelCount('out')
+  const groupSize = shown.reduce((m, i) => m.set(groupOf(i), (m.get(groupOf(i)) ?? 0) + 1), new Map())
 
-  // First letter of each item, for the section headings and the rail.
-  const letterOf = (i) => (/^[a-z]/i.test(i.name) ? i.name[0].toUpperCase() : '#')
-  const lettersPresent = new Set(shown.map(letterOf))
+  // The jump bar. With categories it lists only the groups that are actually
+  // on screen; before migration 14 it's the A–Z rail, absent letters greyed.
   const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
-  const railLetters = [...(shown.some((i) => letterOf(i) === '#') ? ['#'] : []), ...ALPHABET]
+  const railItems = hasCategory
+    ? [...groupSize.keys()].map((g) => ({ key: g, label: railLabel(g), name: g, enabled: true }))
+    : [...(groupSize.has('#') ? ['#'] : []), ...ALPHABET].map((l) => ({
+        key: l,
+        label: l,
+        name: l,
+        enabled: groupSize.has(l),
+      }))
   // The rail is for scanning a long list. While searching, or on a short one,
-  // it's just clutter.
-  const showRail = !q && shown.length > 15
+  // it's just clutter — and with the export panel open it would sit on top of
+  // the panel's buttons.
+  const showRail = !q && shown.length > 15 && !exporting
 
-  const jumpTo = (letter) => {
-    const el = letterRefs.current[letter]
+  const jumpTo = (group) => {
+    const el = groupRefs.current[group]
     if (!el) return
     // Jump instantly for anyone who's asked for less motion — a long smooth
     // scroll across 70-odd rows is exactly the kind of movement that setting
@@ -227,6 +283,10 @@ export default function Inventory() {
       aliases: (i.aliases ?? []).join(', '),
       shelfLife: i.shelf_life_days == null ? '' : String(i.shelf_life_days),
       notes: i.notes ?? '',
+      category: i.category ?? '',
+      newCategory: '',
+      packSize: i.pack_size == null ? '' : String(i.pack_size),
+      packUnit: i.pack_unit ?? 'g',
     })
     setError('')
     setSuccess('')
@@ -288,9 +348,18 @@ export default function Inventory() {
       setError(`"${dupe.name}" already exists — pick a different name.`)
       return
     }
+    const cat = hasCategory ? resolveFormCategory(form, items) : { category: null }
+    if (cat.error) {
+      setError(cat.error)
+      return
+    }
+    if (hasCategory && form.packSize !== '' && !(Number(form.packSize) > 0)) {
+      setError('The pack size should be a number above 0, or left blank.')
+      return
+    }
     setSaving(true)
     try {
-      const updated = await updateIngredient(ingredient, form, currentUser.id)
+      const updated = await updateIngredient(ingredient, { ...form, category: cat.category }, currentUser.id)
       setItems((prev) =>
         prev.map((i) => (i.id === updated.id ? updated : i)).sort((a, b) => a.name.localeCompare(b.name))
       )
@@ -305,7 +374,18 @@ export default function Inventory() {
 
   return (
     <>
-      <h2 className="title">Inventory</h2>
+      <div className="title-row">
+        <h2 className="title">Inventory</h2>
+        {items && canEdit && !exporting ? (
+          <button className="mini-btn" onClick={() => setExporting(true)}>
+            ⬇️ Export
+          </button>
+        ) : null}
+      </div>
+
+      {exporting ? (
+        <InventoryExport items={(items ?? []).filter((i) => !i.archived_at)} onClose={() => setExporting(false)} />
+      ) : null}
 
       {error ? <div className="error" style={{ marginTop: 12 }}>{error}</div> : null}
       {success ? <div className="success" style={{ marginTop: 12 }}>{success}</div> : null}
@@ -335,7 +415,8 @@ export default function Inventory() {
 
           <div className="muted">
             {shown.length} {showArchived ? 'archived ' : ''}ingredient{shown.length === 1 ? '' : 's'}
-            {!showArchived && lowCount > 0 ? ` · ${lowCount} below threshold` : ''}
+            {lowCount > 0 ? ` · ${lowCount} low` : ''}
+            {outCount > 0 ? ` · ${outCount} out of stock` : ''}
             {mealFilter ? ' · filtered' : ''}
             {q ? ` · matching “${search.trim()}”` : ''}
           </div>
@@ -370,18 +451,22 @@ export default function Inventory() {
             ) : null}
           </div>
 
-          {/* A–Z rail. Hugs the right edge of the 480px app frame rather than
+          {/* Jump bar. Hugs the right edge of the 480px app frame rather than
               the viewport, so on a laptop it stays beside the list. */}
           {showRail ? (
-            <nav className="az-rail" aria-label="Jump to letter">
-              {railLetters.map((l) => (
+            <nav
+              className={`az-rail ${hasCategory ? 'cat-rail' : ''}`}
+              aria-label={hasCategory ? 'Jump to category' : 'Jump to letter'}
+            >
+              {railItems.map((r) => (
                 <button
-                  key={l}
-                  disabled={!lettersPresent.has(l)}
-                  onClick={() => jumpTo(l)}
-                  aria-label={`Jump to ${l}`}
+                  key={r.key}
+                  disabled={!r.enabled}
+                  onClick={() => jumpTo(r.key)}
+                  aria-label={`Jump to ${r.name}`}
+                  title={r.name}
                 >
-                  {l}
+                  {r.label}
                 </button>
               ))}
             </nav>
@@ -400,30 +485,50 @@ export default function Inventory() {
                     : 'No ingredients yet — add your first stock item below.'}
             </div>
           ) : (
-            <div className="card" style={{ marginTop: 6 }}>
+            <div className="card inv-card" style={{ marginTop: 6 }}>
+              {/* Column labels for the four columns below. Decorative: each
+                  row's cells say what they are on their own. */}
+              <div className="inv-row inv-cols" aria-hidden="true">
+                <span>Item</span>
+                <span>Unit</span>
+                <span className="r">Count</span>
+                <span />
+              </div>
               {shown.map((i, idx) => {
-                const letter = letterOf(i)
-                const startsLetter = idx === 0 || letterOf(shown[idx - 1]) !== letter
-                const level = stockStatus(i)
-                const isLow = level === 'low'
+                const group = groupOf(i)
+                const startsGroup = idx === 0 || groupOf(shown[idx - 1]) !== group
+                // Archived items aren't stock any more, so they get no colour.
+                const level = i.archived_at ? 'ok' : stockLevel(i)
                 const tag = mealShort(i.meal_tag)
                 const age = ageSummary(status[i.id], i)
+                const note = visibleNote(i)
+                const editing = editingId === i.id
+                const min = Number(i.min_threshold)
                 return (
                   <div key={i.id}>
-                    {startsLetter ? (
+                    {startsGroup ? (
                       <div
                         className="letter-head"
                         ref={(el) => {
-                          letterRefs.current[letter] = el
+                          groupRefs.current[group] = el
                         }}
                       >
-                        {letter}
+                        {hasCategory ? (
+                          <>
+                            {categoryIcon(group)} {group}
+                            <span className="group-count"> · {groupSize.get(group)}</span>
+                          </>
+                        ) : (
+                          group
+                        )}
                       </div>
                     ) : null}
-                    <div className="row">
-                      <span className={`dot ${DOT[level]}`}></span>
+                    <div className={`row inv-row lvl-${level} ${editing ? 'editing' : ''}`}>
                       <div className="info">
-                        <div className="n">{i.name}</div>
+                        <div className="n">
+                          {i.name}
+                          {LEVEL_TEXT[level] ? <span className="sr-only"> — {LEVEL_TEXT[level]}</span> : null}
+                        </div>
                         <div className="m">
                           {i.supplier?.name ?? 'No supplier set'}
                           {tag ? ` · ${tag}` : ''}
@@ -431,24 +536,22 @@ export default function Inventory() {
                         {/* Plain, uncoloured: the app reports the age, the cook
                             decides what it means. */}
                         {age ? <div className="m">{age}</div> : null}
-                        {i.notes ? <div className="m">📝 {i.notes}</div> : null}
+                        {note ? <div className="m">📝 {note}</div> : null}
                       </div>
-                      {editingId === i.id ? null : (
+                      {editing ? null : (
                         <>
+                          <div className="inv-unit">{unitLabel(i)}</div>
                           <div className="qty">
-                            {fmtQty(i.quantity)} {shortUnit(i.unit)}
-                            <small>
-                              min {fmtQty(i.min_threshold)} {shortUnit(i.unit)}
-                            </small>
+                            {fmtQty(i.quantity)}
+                            {/* Only when a reorder level is set — "min 0" on
+                                every row was noise. */}
+                            {min > 0 ? <small>min {fmtQty(min)}</small> : null}
                           </div>
-                          {i.archived_at ? (
-                            <span className="pill">ARCHIVED</span>
-                          ) : (
-                            <span className={`pill ${isLow ? 'low' : 'ok'}`}>{isLow ? 'LOW' : 'OK'}</span>
-                          )}
+                          <div className="inv-actions">
                           <button
                             className={`mini-btn ${chartId === i.id ? 'on' : ''}`}
                             title="Stock chart"
+                            aria-label={`Stock chart for ${i.name}`}
                             onClick={() => {
                               setChartId(chartId === i.id ? null : i.id)
                               setEditingId(null)
@@ -479,6 +582,7 @@ export default function Inventory() {
                               Edit
                             </button>
                           ) : null}
+                          </div>
                         </>
                       )}
                     </div>
@@ -501,6 +605,8 @@ export default function Inventory() {
                           autoFocusName={false}
                           hasShelfLife={hasShelfLife}
                           hasNotes={hasNotes}
+                          hasCategory={hasCategory}
+                          items={items}
                         />
                         <div className="appr-actions">
                           <button className="btn green" type="submit" disabled={saving}>

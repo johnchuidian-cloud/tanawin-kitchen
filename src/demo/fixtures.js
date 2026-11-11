@@ -31,25 +31,31 @@ export const fixtures = {
   ],
 
   // supplier + optional columns embedded, so the mock can return rows as-is.
+  // Last two arguments: food category, and [pack size, pack unit] where the
+  // item is counted in containers.
   ingredients: [
-    ing('ing-chicken', 'Chicken', 'kg', 8, 5, 185, 'sup-market', 'lunch_dinner', 3, null),
-    ing('ing-porkbelly', 'Pork belly', 'kg', 6, 4, 260, 'sup-market', 'lunch_dinner', 3, null),
-    ing('ing-bangus', 'Bangus (milkfish)', 'kg', 4, 3, 170, 'sup-market', 'lunch_dinner', 4, null),
-    ing('ing-rice', 'Rice', 'kg', 40, 10, 52, 'sup-grains', 'both', 30, null),
-    ing('ing-egg', 'Eggs', 'pieces', 90, 60, 8.5, 'sup-dairy', 'breakfast', 14, '1 tray = 30 pcs'),
-    ing('ing-oil', 'Cooking oil', 'L', 5, 3, 92, 'sup-grocery', 'both', 120, null),
-    ing('ing-garlic', 'Garlic', 'g', 800, 500, 0.28, 'sup-market', 'both', 30, null),
-    ing('ing-onion', 'Onion', 'kg', 0.4, 1, 95, 'sup-market', 'both', 21, null),
-    ing('ing-tomato', 'Tomato', 'kg', 2, 1, 70, 'sup-market', 'both', 7, null),
-    ing('ing-soy', 'Soy sauce', 'bottle', 6, 3, 48, 'sup-grocery', 'both', 365, '1 bottle = 1 L'),
-    ing('ing-vinegar', 'Vinegar', 'bottle', 5, 3, 38, 'sup-grocery', 'both', 365, null),
-    ing('ing-milk', 'Fresh milk', 'L', 0.5, 2, 105, 'sup-dairy', 'breakfast', 5, null),
-    ing('ing-butter', 'Butter', 'g', 250, 200, 0.9, 'sup-dairy', 'breakfast', 60, '1 pack = 225 g'),
-    ing('ing-flour', 'All-purpose flour', 'kg', 3, 2, 58, 'sup-grains', 'breakfast', 180, null),
-    ing('ing-sugar', 'Sugar', 'kg', 5, 2, 70, 'sup-grains', 'both', 365, null),
-    ing('ing-coffee', 'Coffee beans', 'g', 300, 400, 1.4, 'sup-grocery', 'breakfast', 90, null),
+    ing('ing-chicken', 'Chicken', 'kg', 8, 5, 185, 'sup-market', 'lunch_dinner', 3, null, 'Proteins'),
+    ing('ing-porkbelly', 'Pork belly', 'kg', 6, 4, 260, 'sup-market', 'lunch_dinner', 3, null, 'Proteins'),
+    ing('ing-bangus', 'Bangus (milkfish)', 'kg', 4, 3, 170, 'sup-market', 'lunch_dinner', 4, null, 'Proteins'),
+    ing('ing-tapa', 'Beef tapa', 'packs', 7, 4, 120, 'sup-market', 'breakfast', 30, '1 pack = 250 g', 'Proteins', [250, 'g']),
+    ing('ing-rice', 'Rice', 'kg', 40, 10, 52, 'sup-grains', 'both', 30, null, 'Dry Goods'),
+    ing('ing-egg', 'Eggs', 'pieces', 90, 60, 8.5, 'sup-dairy', 'breakfast', 14, 'sold by the tray of 30', 'Dairy & Eggs'),
+    ing('ing-oil', 'Cooking oil', 'L', 5, 3, 92, 'sup-grocery', 'both', 120, null, 'Condiments & Sauces'),
+    ing('ing-garlic', 'Garlic', 'g', 800, 500, 0.28, 'sup-market', 'both', 30, null, 'Produce'),
+    ing('ing-onion', 'Onion', 'kg', 0.4, 1, 95, 'sup-market', 'both', 21, null, 'Produce'),
+    ing('ing-tomato', 'Tomato', 'kg', 2, 1, 70, 'sup-market', 'both', 7, null, 'Produce'),
+    ing('ing-calamansi', 'Calamansi', 'kg', 0, 0.5, 80, 'sup-market', 'both', 10, null, 'Produce'),
+    ing('ing-soy', 'Soy sauce', 'bottle', 6, 3, 48, 'sup-grocery', 'both', 365, '1 bottle = 1 L', 'Condiments & Sauces', [1, 'L']),
+    ing('ing-vinegar', 'Vinegar', 'bottle', 5, 3, 38, 'sup-grocery', 'both', 365, null, 'Condiments & Sauces'),
+    ing('ing-milk', 'Fresh milk', 'L', 0.5, 2, 105, 'sup-dairy', 'breakfast', 5, null, 'Dairy & Eggs'),
+    ing('ing-butter', 'Butter', 'packs', 2, 1, 210, 'sup-dairy', 'breakfast', 60, '1 pack = 225 g', 'Dairy & Eggs', [225, 'g']),
+    ing('ing-flour', 'All-purpose flour', 'kg', 3, 2, 58, 'sup-grains', 'breakfast', 180, null, 'Dry Goods'),
+    ing('ing-sugar', 'Sugar', 'kg', 5, 2, 70, 'sup-grains', 'both', 365, null, 'Dry Goods'),
+    ing('ing-coffee', 'Coffee beans', 'g', 300, 400, 1.4, 'sup-grocery', 'breakfast', 90, null, 'Beverages'),
+    // a custom category, to show one alongside the built-in set
+    ing('ing-pandesal', 'Pandesal', 'packs', 0, 2, 60, 'sup-grains', 'breakfast', 2, null, 'Bakery', [10, 'pieces']),
     // one archived item, to exercise the archived filter/view
-    { id: 'ing-old', name: 'Assorted vegetables', unit: 'kg', quantity: 0, min_threshold: 0, cost_per_unit: 0, meal_tag: null, aliases: [], supplier_id: null, supplier: null, shelf_life_days: null, notes: null, archived_at: daysAgo(10) },
+    { id: 'ing-old', name: 'Assorted vegetables', unit: 'kg', quantity: 0, min_threshold: 0, cost_per_unit: 0, meal_tag: null, aliases: [], supplier_id: null, supplier: null, shelf_life_days: null, notes: null, category: 'Produce', pack_size: null, pack_unit: null, archived_at: daysAgo(10) },
   ],
 
   recipes: [
@@ -122,8 +128,9 @@ export const fixtures = {
   // latest movement per item per kind — drives the "counted N days ago" ages.
   stock_item_status: buildStatus(),
 
-  // a full daily series for Chicken, so the stock chart has something to draw.
-  stock_movements: chickenSeries(),
+  // a full daily series for Chicken, so the stock chart has something to draw,
+  // plus one count per other item so the export has history to fill in.
+  stock_movements: [...chickenSeries(), ...openingCounts()],
 
   kitchen_settings: [{ key: 'staff_direct_restock', value: false }],
   waste_log: [],
@@ -137,14 +144,33 @@ export const fixtures = {
 
 // --- helpers -------------------------------------------------------------
 
-function ing(id, name, unit, quantity, min, cost, supplierId, meal, shelf, notes) {
+function ing(id, name, unit, quantity, min, cost, supplierId, meal, shelf, notes, category = null, pack = null) {
   const sup = fixturesSupplierName(supplierId)
   return {
     id, name, unit, quantity, min_threshold: min, cost_per_unit: cost,
     meal_tag: meal, aliases: [], supplier_id: supplierId,
     supplier: sup ? { name: sup } : null,
     shelf_life_days: shelf, notes, archived_at: null,
+    category, pack_size: pack ? pack[0] : null, pack_unit: pack ? pack[1] : null,
   }
+}
+
+// Every item except Chicken (which has its own series): counted 9 days ago at
+// a bit more than it holds now, then counted again 3 days ago at today's level.
+function openingCounts() {
+  const rows = []
+  const items = [
+    ['ing-porkbelly', 6], ['ing-bangus', 4], ['ing-tapa', 7], ['ing-rice', 40], ['ing-egg', 90],
+    ['ing-oil', 5], ['ing-garlic', 800], ['ing-onion', 0.4], ['ing-tomato', 2], ['ing-calamansi', 0],
+    ['ing-soy', 6], ['ing-vinegar', 5], ['ing-milk', 0.5], ['ing-butter', 2], ['ing-flour', 3],
+    ['ing-sugar', 5], ['ing-coffee', 300], ['ing-pandesal', 0],
+  ]
+  for (const [id, qty] of items) {
+    const before = qty === 0 ? 2 : Math.round(qty * 1.5 * 100) / 100
+    rows.push({ id: `oc-${id}-9`, ingredient_id: id, kind: 'count', delta: 0, qty_after: before, occurred_at: daysAgo(9), servings: null, note: null, actor: { name: 'Ben Santos' }, recipe: null })
+    rows.push({ id: `oc-${id}-3`, ingredient_id: id, kind: 'count', delta: qty - before, qty_after: qty, occurred_at: daysAgo(3), servings: null, note: null, actor: { name: 'Rosa Aquino' }, recipe: null })
+  }
+  return rows
 }
 function fixturesSupplierName(id) {
   const map = {

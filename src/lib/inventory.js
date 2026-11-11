@@ -17,9 +17,11 @@ const INGREDIENT_COLS =
 
 /**
  * Columns added by later migrations, OLDEST FIRST:
- *   shelf_life_days — migration 11
- *   archived_at     — migration 12
- *   notes           — migration 13
+ *   shelf_life_days                — migration 11
+ *   archived_at                    — migration 12
+ *   notes                          — migration 13
+ *   category, pack_size, pack_unit — migration 14 (one entry: they arrive
+ *                                    together, so they're dropped together)
  *
  * Asking PostgREST for a column that doesn't exist fails the WHOLE query, so
  * these are dropped one at a time from the end until the read succeeds. An
@@ -28,7 +30,7 @@ const INGREDIENT_COLS =
  * took archiving and shelf life down with it — and, worse, made archived
  * items reappear in the main list because archived_at came back missing.
  */
-const OPTIONAL_COLS = ['shelf_life_days', 'archived_at', 'notes']
+const OPTIONAL_COLS = ['shelf_life_days', 'archived_at', 'notes', 'category, pack_size, pack_unit']
 
 // Remembered after the first successful read so the retries happen once per
 // session rather than on every screen.
@@ -116,6 +118,11 @@ export async function updateIngredient(ingredient, fields, actorId) {
   if ('notes' in ingredient) {
     patch.notes = (fields.notes ?? '').trim() || null
   }
+  if ('category' in ingredient) {
+    // Already resolved by the form (a new custom name, or an existing one).
+    patch.category = fields.category || null
+    Object.assign(patch, packFields(patch.unit, fields.packSize, fields.packUnit))
+  }
   const { data, error } = await supabase
     .from('ingredients')
     .update(patch)
@@ -132,6 +139,14 @@ export async function updateIngredient(ingredient, fields, actorId) {
     bits.push(`min ${ingredient.min_threshold} → ${patch.min_threshold}`)
   if ((patch.meal_tag ?? null) !== (ingredient.meal_tag ?? null))
     bits.push(`meal ${patch.meal_tag ?? 'none'}`)
+  if ('category' in patch && (patch.category ?? null) !== (ingredient.category ?? null))
+    bits.push(`category ${patch.category ?? 'none'}`)
+  if (
+    'pack_size' in patch &&
+    ((patch.pack_size ?? null) !== (ingredient.pack_size == null ? null : Number(ingredient.pack_size)) ||
+      (patch.pack_unit ?? null) !== (ingredient.pack_unit ?? null))
+  )
+    bits.push(`pack ${patch.pack_size == null ? 'none' : unitLabel(patch)}`)
   await logActivity(
     `Stock item updated — ${patch.name}${bits.length ? ` (${bits.join('; ')})` : ''}`,
     actorId,
@@ -150,11 +165,80 @@ export function stockStatus(ing) {
   return 'ok'
 }
 
+// The colour of an Inventory row:
+//   out — nothing on hand            (light red)
+//   low — at or below reorder level  (yellow)
+//   ok  — anything else              (no colour)
+// Separate from stockStatus() above, which Home's "low stock" count still
+// uses and which counts an empty item as low.
+export function stockLevel(ing) {
+  const q = Number(ing.quantity)
+  if (!(q > 0)) return 'out'
+  if (q <= Number(ing.min_threshold)) return 'low'
+  return 'ok'
+}
+
 // Compact unit label for the tight quantity column (pieces → pc, packs → pk).
 const UNIT_SHORT = { pieces: 'pc', packs: 'pk' }
 export function shortUnit(unit) {
   return UNIT_SHORT[unit] ?? unit
 }
+
+// Units that ARE a measure. An item stocked in one needs no pack size —
+// "kg" already says how much one is.
+const MEASURE_UNITS = ['kg', 'g', 'L', 'ml']
+export const isMeasureUnit = (unit) => MEASURE_UNITS.includes(unit)
+
+// What ONE of a stocking unit is called: packs → pack, pieces → piece. The
+// rest of UNITS (bottle, box, can, …) are already singular.
+const SINGULAR = { packs: 'pack', pieces: 'piece' }
+export const singularUnit = (unit) => SINGULAR[unit] ?? unit
+
+// What a pack size can be written in ("1 pack = 250 g", "1 pack = 12 pieces").
+export const PACK_UNITS = ['g', 'kg', 'ml', 'L', 'pieces']
+
+// pack_size / pack_unit to store for an item. Cleared for measure units (a
+// pack size on an item counted in kg means nothing) and when left blank.
+export function packFields(unit, packSize, packUnit) {
+  const size = packSize === '' || packSize == null ? null : Number(packSize)
+  if (isMeasureUnit(unit) || !(size > 0)) return { pack_size: null, pack_unit: null }
+  return { pack_size: size, pack_unit: PACK_UNITS.includes(packUnit) ? packUnit : 'g' }
+}
+
+const hasPack = (i) => !isMeasureUnit(i.unit) && Number(i.pack_size) > 0 && !!i.pack_unit
+
+/**
+ * The Inventory UNIT column: what one counted unit IS, so the count beside it
+ * reads plainly. "250 g pack" → 7 means seven 250 g packs; "kg" → 0.5 means
+ * half a kilo. Items without a pack size just show their unit ("pack").
+ */
+export function unitLabel(i) {
+  if (isMeasureUnit(i.unit)) return i.unit
+  if (hasPack(i)) return `${fmtQty(i.pack_size)} ${shortUnit(i.pack_unit)} ${singularUnit(i.unit)}`
+  return singularUnit(i.unit)
+}
+
+// "1 pack = 300 g" — the pack size in the words the cooks already used in
+// their notes. Null when there's no pack size.
+export function packLine(i) {
+  return hasPack(i) ? `1 ${singularUnit(i.unit)} = ${fmtQty(i.pack_size)} ${i.pack_unit}` : null
+}
+
+// The same idea split into the export's PURCHASE UNIT and UNIT columns:
+// 250 + "g pack", or 1 + "kg".
+export function exportUnit(i) {
+  if (hasPack(i)) return { size: Number(i.pack_size), unit: `${shortUnit(i.pack_unit)} ${singularUnit(i.unit)}` }
+  return { size: 1, unit: isMeasureUnit(i.unit) ? i.unit : singularUnit(i.unit) }
+}
+
+// A note that says "1 pack = 300 g" and nothing else. Once the pack size is in
+// its own field, that note only repeats the UNIT column, so the list hides it.
+// Same pattern migration 14 used to copy such notes into pack_size.
+const PACK_NOTE = /^\s*1\s*[a-z]+\s*=\s*\d+(\.\d+)?\s*(kg|g|ml|l|pcs?|pieces?)\s*$/i
+export const isPackOnlyNote = (note) => PACK_NOTE.test(note ?? '')
+
+// The note worth showing under an item's name, if any.
+export const visibleNote = (i) => (i.notes && !(hasPack(i) && isPackOnlyNote(i.notes)) ? i.notes : null)
 
 // Trim trailing zeros: 2.50 → "2.5", 22 → "22".
 export function fmtQty(n) {
@@ -167,7 +251,10 @@ export const UNITS = ['kg', 'g', 'L', 'ml', 'pieces', 'packs', 'bottle', 'box', 
 // Add a new stock item to the catalog. Staff AND admin may do this directly
 // (per Lexi/John): a new item starts at qty 0 / cost ₱0, so it has no
 // financial impact — counts and purchases still follow their own rules.
-export async function addIngredient({ name, unit, minThreshold, mealTag, quantity, notes }, actorId) {
+export async function addIngredient(
+  { name, unit, minThreshold, mealTag, quantity, notes, category, packSize, packUnit },
+  actorId
+) {
   const onHand = quantity === '' || quantity == null ? 0 : Number(quantity)
   const row = {
     name: name.trim(),
@@ -177,13 +264,19 @@ export async function addIngredient({ name, unit, minThreshold, mealTag, quantit
     cost_per_unit: 0,
     meal_tag: mealTag || null,
   }
-  // Sent only when there's something to send: the add form hides the field
-  // until migration 13 has run, so this can't reach a column that isn't there.
+  // Sent only when there's something to send: the add form hides these fields
+  // until their migration (13, 14) has run, so they can't reach a column that
+  // isn't there.
   if (notes?.trim()) row.notes = notes.trim()
+  if (category) row.category = category
+  const pack = packFields(unit, packSize, packUnit)
+  if (pack.pack_size != null) Object.assign(row, pack)
   const { data, error } = await supabase
     .from('ingredients')
     .insert(row)
-    .select(INGREDIENT_COLS)
+    // Same column set the list was read with, so the new row lands in its
+    // category group straight away instead of under "Not sorted yet".
+    .select([INGREDIENT_COLS, ...(workingCols ?? [])].join(', '))
     .single()
   if (error) throw error
   await logActivity(

@@ -6,6 +6,7 @@ import UpdateBanner from './components/UpdateBanner.jsx'
 import Login from './screens/Login.jsx'
 import Home from './screens/Home.jsx'
 import Inventory from './screens/Inventory.jsx'
+import Categories from './screens/Categories.jsx'
 import CountStock from './screens/CountStock.jsx'
 import StockHistory from './screens/StockHistory.jsx'
 import WasteLog from './screens/WasteLog.jsx'
@@ -48,6 +49,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route path="/categories" element={<Categories />} />
           <Route path="/count" element={<CountStock />} />
           <Route path="/history" element={<StockHistory />} />
           <Route path="/recipes" element={<Recipes />} />

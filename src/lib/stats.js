@@ -1,17 +1,17 @@
 import { supabase } from './supabase.js'
-import { fetchIngredients, stockStatus } from './inventory.js'
+import { fetchIngredients, stockLevel } from './inventory.js'
 
-// Home dashboard counts: low stock, pending approvals, waste this week.
+// Home dashboard counts: low stock, out of stock, pending approvals. Low and
+// out are counted the same way as the Inventory row colours (yellow / light
+// red), so the two screens agree — an empty item is "out", not also "low".
 export async function fetchHomeStats() {
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const [ings, pending, waste] = await Promise.all([
+  const [ings, pending] = await Promise.all([
     fetchIngredients(),
     supabase.from('approvals').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('waste_log').select('id', { count: 'exact', head: true }).gte('logged_at', weekAgo),
   ])
   return {
-    lowStock: ings.filter((i) => stockStatus(i) === 'low').length,
+    lowStock: ings.filter((i) => stockLevel(i) === 'low').length,
+    outOfStock: ings.filter((i) => stockLevel(i) === 'out').length,
     pending: pending.count ?? 0,
-    wasteWeek: waste.count ?? 0,
   }
 }

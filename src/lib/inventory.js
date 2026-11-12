@@ -3,14 +3,15 @@ import { fetchAllRows } from './paginate.js'
 import { logActivity } from './activity.js'
 import { recordMovement } from './movements.js'
 
-// Which meal a stock item is mainly used for. Loose grouping for the team —
-// nothing enforces it.
+// Which meal something is for. RECIPES still use these. Stock items no longer
+// show or set them (2026-11-13, owner's call: stock is kept on hand at all
+// times regardless of meal, and the tags confused things). The column stays on
+// ingredients, untouched, so nothing is lost if that's ever reversed.
 export const MEAL_TAGS = [
   { key: 'breakfast', label: 'Breakfast', short: '🌅 Breakfast' },
   { key: 'lunch_dinner', label: 'Lunch/Dinner', short: '🍽️ Lunch/Dinner' },
   { key: 'both', label: 'Both', short: '🌅🍽️ Both' },
 ]
-export const mealShort = (tag) => MEAL_TAGS.find((m) => m.key === tag)?.short ?? null
 
 const INGREDIENT_COLS =
   'id, name, unit, quantity, min_threshold, cost_per_unit, meal_tag, aliases, supplier_id, supplier:suppliers(name)'
@@ -95,15 +96,16 @@ export async function fetchIngredients({ includeArchived = false } = {}) {
   throw lastError
 }
 
-// Edit a stock item: name, unit, reorder level, meal tag. NOTE: changing the
-// unit does NOT convert the on-hand quantity or the cost-per-unit — the UI
-// warns about this, since only a human knows whether "2" kg meant "2000" g.
+// Edit a stock item: name, unit, reorder level, category, pack size. NOTE:
+// changing the unit does NOT convert the on-hand quantity or the cost-per-unit
+// — the UI warns about this, since only a human knows whether "2" kg meant
+// "2000" g. meal_tag is deliberately not sent: the form no longer has it, and
+// sending null would wipe the old tags for no reason.
 export async function updateIngredient(ingredient, fields, actorId) {
   const patch = {
     name: fields.name.trim(),
     unit: fields.unit,
     min_threshold: fields.minThreshold === '' ? 0 : Number(fields.minThreshold),
-    meal_tag: fields.mealTag || null,
     aliases: (fields.aliases ?? '')
       .split(',')
       .map((a) => a.trim())
@@ -137,8 +139,6 @@ export async function updateIngredient(ingredient, fields, actorId) {
   if (patch.unit !== ingredient.unit) bits.push(`unit ${ingredient.unit} → ${patch.unit}`)
   if (Number(patch.min_threshold) !== Number(ingredient.min_threshold))
     bits.push(`min ${ingredient.min_threshold} → ${patch.min_threshold}`)
-  if ((patch.meal_tag ?? null) !== (ingredient.meal_tag ?? null))
-    bits.push(`meal ${patch.meal_tag ?? 'none'}`)
   if ('category' in patch && (patch.category ?? null) !== (ingredient.category ?? null))
     bits.push(`category ${patch.category ?? 'none'}`)
   if (
@@ -149,6 +149,24 @@ export async function updateIngredient(ingredient, fields, actorId) {
     bits.push(`pack ${patch.pack_size == null ? 'none' : unitLabel(patch)}`)
   await logActivity(
     `Stock item updated — ${patch.name}${bits.length ? ` (${bits.join('; ')})` : ''}`,
+    actorId,
+    { type: 'ingredient_update', ingredient_id: ingredient.id }
+  )
+  return data
+}
+
+// Move one item to another category (null = Not sorted yet). The Categories
+// screen's quick move — the full Edit form does the same as part of a save.
+export async function setIngredientCategory(ingredient, category, actorId) {
+  const { data, error } = await supabase
+    .from('ingredients')
+    .update({ category: category || null })
+    .eq('id', ingredient.id)
+    .select([INGREDIENT_COLS, ...(workingCols ?? [])].join(', '))
+    .single()
+  if (error) throw error
+  await logActivity(
+    `Stock item updated — ${ingredient.name} (category ${category || 'none'})`,
     actorId,
     { type: 'ingredient_update', ingredient_id: ingredient.id }
   )
@@ -252,7 +270,7 @@ export const UNITS = ['kg', 'g', 'L', 'ml', 'pieces', 'packs', 'bottle', 'box', 
 // (per Lexi/John): a new item starts at qty 0 / cost ₱0, so it has no
 // financial impact — counts and purchases still follow their own rules.
 export async function addIngredient(
-  { name, unit, minThreshold, mealTag, quantity, notes, category, packSize, packUnit },
+  { name, unit, minThreshold, quantity, notes, category, packSize, packUnit },
   actorId
 ) {
   const onHand = quantity === '' || quantity == null ? 0 : Number(quantity)
@@ -262,7 +280,6 @@ export async function addIngredient(
     quantity: Number.isFinite(onHand) && onHand > 0 ? onHand : 0,
     min_threshold: Number(minThreshold) || 0,
     cost_per_unit: 0,
-    meal_tag: mealTag || null,
   }
   // Sent only when there's something to send: the add form hides these fields
   // until their migration (13, 14) has run, so they can't reach a column that

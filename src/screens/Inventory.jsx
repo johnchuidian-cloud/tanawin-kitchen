@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import AddStockItem from '../components/AddStockItem.jsx'
 import InventoryExport from '../components/InventoryExport.jsx'
@@ -17,8 +17,6 @@ import {
   visibleNote,
   fmtQty,
   UNITS,
-  MEAL_TAGS,
-  mealShort,
 } from '../lib/inventory.js'
 import {
   groupName,
@@ -26,6 +24,7 @@ import {
   categorySortKey,
   railLabel,
   resolveFormCategory,
+  useCategoryList,
 } from '../lib/categories.js'
 import { fetchItemStatus, ageSummary } from '../lib/movements.js'
 import StockChart from '../components/StockChart.jsx'
@@ -37,7 +36,6 @@ const BLANK = {
   name: '',
   unit: 'kg',
   minThreshold: '',
-  mealTag: '',
   aliases: '',
   shelfLife: '',
   notes: '',
@@ -99,17 +97,6 @@ function Fields({ ingredient, form, set, autoFocusName, hasShelfLife, hasNotes, 
           placeholder="leave blank if unsure"
         />
       </div>
-      <div className="field">
-        <label>Mainly used for (optional)</label>
-        <select value={form.mealTag} onChange={(e) => set('mealTag', e.target.value)}>
-          <option value="">— not set —</option>
-          {MEAL_TAGS.map((m) => (
-            <option key={m.key} value={m.key}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-      </div>
       {hasShelfLife ? (
         <div className="field">
           <label>Keeps for about (days, optional)</label>
@@ -167,7 +154,6 @@ export default function Inventory() {
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(BLANK)
   const [saving, setSaving] = useState(false)
-  const [mealFilter, setMealFilter] = useState('')
   const [status, setStatus] = useState({})
   const [showArchived, setShowArchived] = useState(false)
   const [usage, setUsage] = useState(null) // what the open item would lose
@@ -180,6 +166,13 @@ export default function Inventory() {
   // One ref per group heading (category, or letter before migration 14), so
   // the jump bar can scroll to it.
   const groupRefs = useRef({})
+  // Re-groups once the owner's category list (order, icons) has loaded.
+  useCategoryList()
+  // ?cat=Proteins — opened from the Categories screen: scroll to that group
+  // once the list is on screen, then never again for this visit.
+  const [params] = useSearchParams()
+  const jumpCat = params.get('cat')
+  const jumped = useRef(false)
 
   useEffect(() => {
     let active = true
@@ -225,7 +218,6 @@ export default function Inventory() {
 
   const shown = (items ?? [])
     .filter((i) => (showArchived ? i.archived_at : !i.archived_at))
-    .filter((i) => !mealFilter || i.meal_tag === mealFilter || i.meal_tag === 'both')
     .filter(matches)
     .sort((a, b) =>
       hasCategory
@@ -264,6 +256,15 @@ export default function Inventory() {
     el.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' })
   }
 
+  useEffect(() => {
+    if (!items || !jumpCat || jumped.current) return
+    jumped.current = true
+    // After this render has attached the group refs.
+    requestAnimationFrame(() => jumpTo(jumpCat))
+    // jumpTo only reads a ref; re-running on its identity would re-scroll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, jumpCat])
+
   const startAdd = () => {
     setAdding(true)
     setEditingId(null)
@@ -279,7 +280,6 @@ export default function Inventory() {
       name: i.name ?? '',
       unit: i.unit ?? 'kg',
       minThreshold: i.min_threshold == null ? '' : String(i.min_threshold),
-      mealTag: i.meal_tag ?? '',
       aliases: (i.aliases ?? []).join(', '),
       shelfLife: i.shelf_life_days == null ? '' : String(i.shelf_life_days),
       notes: i.notes ?? '',
@@ -376,11 +376,18 @@ export default function Inventory() {
     <>
       <div className="title-row">
         <h2 className="title">Inventory</h2>
-        {items && canEdit && !exporting ? (
-          <button className="mini-btn" onClick={() => setExporting(true)}>
-            ⬇️ Export
-          </button>
-        ) : null}
+        <div className="title-actions">
+          {items && hasCategory ? (
+            <button className="mini-btn" onClick={() => navigate('/categories')}>
+              🗂️ Categories
+            </button>
+          ) : null}
+          {items && canEdit && !exporting ? (
+            <button className="mini-btn" onClick={() => setExporting(true)}>
+              ⬇️ Export
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {exporting ? (
@@ -417,28 +424,13 @@ export default function Inventory() {
             {shown.length} {showArchived ? 'archived ' : ''}ingredient{shown.length === 1 ? '' : 's'}
             {lowCount > 0 ? ` · ${lowCount} low` : ''}
             {outCount > 0 ? ` · ${outCount} out of stock` : ''}
-            {mealFilter ? ' · filtered' : ''}
             {q ? ` · matching “${search.trim()}”` : ''}
           </div>
 
-          {/* Meal filter — "both" items always show */}
-          <div className="meal-filter">
-            <button
-              className={`chip ${!mealFilter ? 'on' : ''}`}
-              onClick={() => setMealFilter('')}
-            >
-              All
-            </button>
-            {MEAL_TAGS.filter((m) => m.key !== 'both').map((m) => (
-              <button
-                key={m.key}
-                className={`chip ${mealFilter === m.key ? 'on' : ''}`}
-                onClick={() => setMealFilter(m.key)}
-              >
-                {m.short}
-              </button>
-            ))}
-            {archivedCount > 0 || showArchived ? (
+          {/* The Breakfast / Lunch-Dinner filter used to sit here; stock is
+              kept for every meal, so it went (2026-11-13). */}
+          {archivedCount > 0 || showArchived ? (
+            <div className="meal-filter">
               <button
                 className={`chip ${showArchived ? 'on' : ''}`}
                 onClick={() => {
@@ -448,8 +440,8 @@ export default function Inventory() {
               >
                 📥 Archived ({archivedCount})
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           {/* Jump bar. Hugs the right edge of the 480px app frame rather than
               the viewport, so on a laptop it stays beside the list. */}
@@ -480,9 +472,7 @@ export default function Inventory() {
                 ? `Nothing matches “${search.trim()}”. Try part of the name, or the name you'd normally say for it.`
                 : showArchived
                   ? 'Nothing archived. Items you retire show up here, and you can bring them back any time.'
-                  : mealFilter
-                    ? 'No items tagged for this meal yet.'
-                    : 'No ingredients yet — add your first stock item below.'}
+                  : 'No ingredients yet — add your first stock item below.'}
             </div>
           ) : (
             <div className="card inv-card" style={{ marginTop: 6 }}>
@@ -499,7 +489,6 @@ export default function Inventory() {
                 const startsGroup = idx === 0 || groupOf(shown[idx - 1]) !== group
                 // Archived items aren't stock any more, so they get no colour.
                 const level = i.archived_at ? 'ok' : stockLevel(i)
-                const tag = mealShort(i.meal_tag)
                 const age = ageSummary(status[i.id], i)
                 const note = visibleNote(i)
                 const editing = editingId === i.id
@@ -531,7 +520,6 @@ export default function Inventory() {
                         </div>
                         <div className="m">
                           {i.supplier?.name ?? 'No supplier set'}
-                          {tag ? ` · ${tag}` : ''}
                         </div>
                         {/* Plain, uncoloured: the app reports the age, the cook
                             decides what it means. */}

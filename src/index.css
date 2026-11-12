@@ -126,6 +126,35 @@ body{
 }
 
 .title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.title-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+/* ---- categories screen ---- */
+.row.cat-row{
+  width:100%;background:none;border:none;border-bottom:1px solid var(--line);
+  font:inherit;color:inherit;cursor:pointer;text-align:left;
+}
+.cat-row .info{display:flex;flex-direction:column}
+.cat-ico{font-size:22px;width:30px;text-align:center;flex:none}
+.cat-chev{color:var(--ink-soft);font-size:12px;flex:none}
+.cat-tools{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.cat-tools .mini-btn{padding:6px 11px}
+.cat-items{margin-top:8px}
+.cat-item{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,46%);gap:8px;align-items:center;
+  padding:7px 0;border-bottom:1px solid var(--line);
+}
+.cat-item:last-child{border-bottom:none}
+.cat-item-name{font-size:13.5px;font-weight:600;overflow-wrap:anywhere}
+.cat-item select{
+  width:100%;font:inherit;font-size:12px;padding:6px 6px;border:1px solid var(--line);
+  border-radius:9px;background:#fff;color:var(--ink);
+}
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px}
+.icon-grid button{
+  font-size:20px;height:40px;border:1.5px solid var(--line);border-radius:10px;
+  background:#fff;cursor:pointer;
+}
+.icon-grid button.on{border-color:var(--terra);background:var(--cream-2)}
 
 /* ---- pack size field + export panel ---- */
 .pack-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px}
@@ -211,9 +240,11 @@ h2.title{font-size:20px;color:var(--terra);margin-bottom:3px;font-weight:700}
   padding:11px 9px;text-align:center;box-shadow:var(--shadow);cursor:pointer;
 }
 .stat .num{font-size:22px;font-weight:800;line-height:1}
-.stat.low .num{color:var(--terra)}
-.stat.pend .num{color:var(--amber)}
-.stat.waste .num{color:var(--green)}
+/* Low and out follow the Inventory row colours (yellow, light red); the
+   yellow is darkened so the number stays readable on white. */
+.stat.low .num{color:#A5701A}
+.stat.out .num{color:var(--terra)}
+.stat.pend .num{color:var(--ink)}
 .stat .lbl{font-size:10px;color:var(--ink-soft);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
 
 .section-label{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--terra-light);margin:6px 2px 10px}

@@ -1,4 +1,4 @@
-import { categoryOptions, MAX_CATEGORY_LENGTH, NEW_CATEGORY } from '../lib/categories.js'
+import { categoryOptions, useCategoryList, MAX_CATEGORY_LENGTH, NEW_CATEGORY } from '../lib/categories.js'
 import { isMeasureUnit, singularUnit, PACK_UNITS, shortUnit } from '../lib/inventory.js'
 
 /*
@@ -8,6 +8,9 @@ import { isMeasureUnit, singularUnit, PACK_UNITS, shortUnit } from '../lib/inven
  */
 
 export function CategoryField({ form, set, items }) {
+  // Also opened from the ingredient dropdowns on other screens, so it loads
+  // the owner's category list itself rather than relying on Inventory to.
+  useCategoryList()
   const options = categoryOptions(items)
   return (
     <>

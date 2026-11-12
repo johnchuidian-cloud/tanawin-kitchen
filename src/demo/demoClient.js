@@ -94,7 +94,21 @@ class Builder {
         return ok({ data: rows, count: this._count ? total : undefined })
       }
 
-      if (this._op === 'insert' || this._op === 'upsert') {
+      // Upsert replaces a row with the same id (or, for key/value tables like
+      // kitchen_settings, the same key) instead of adding a second copy.
+      if (this._op === 'upsert') {
+        const match = (a, b) => (a.id != null && a.id === b.id) || (a.key != null && a.key === b.key)
+        const rows = this._payload.map((r) => {
+          const hit = store.find((s) => match(s, r))
+          if (hit) return Object.assign(hit, r)
+          const row = { id: r.id ?? `demo-${this.table}-${store.length}`, ...r }
+          store.push(row)
+          return row
+        })
+        return ok({ data: this._single ? rows[0] : rows })
+      }
+
+      if (this._op === 'insert') {
         const rows = this._payload.map((r, i) => ({
           id: r.id ?? `demo-${this.table}-${store.length + i}`,
           ...r,

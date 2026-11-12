@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { fetchHomeStats } from '../lib/stats.js'
 
+// Log Waste used to be the second tile. It's barely used right now, so it
+// lives under More → Waste log, and Categories took its place (2026-11-13).
 const ACTIONS = [
   { ico: '📋', name: 'Count Stock', desc: 'Log current quantities', to: '/count' },
-  { ico: '🗑️', name: 'Log Waste', desc: 'Record spoilage', to: '/waste' },
+  { ico: '🗂️', name: 'Categories', desc: 'Stock by type', to: '/categories' },
   { ico: '🍳', name: 'Recipes', desc: 'Prep & cost', to: '/recipes' },
   { ico: '🧾', name: 'Purchases', desc: 'Restock log', to: '/purchases' },
   { ico: '🚚', name: 'Suppliers', desc: 'Vendors & prices', to: '/suppliers' },
@@ -32,8 +34,10 @@ export default function Home() {
 
   const cards = [
     { key: 'low', num: show(stats?.lowStock), lbl: 'Low Stock', to: '/inventory' },
+    // Was "Waste · wk", which sat at 0 while waste isn't being logged. Out of
+    // stock matches the light-red rows in Inventory.
+    { key: 'out', num: show(stats?.outOfStock), lbl: 'Out of stock', to: '/inventory' },
     { key: 'pend', num: show(stats?.pending), lbl: 'Pending', to: '/approvals' },
-    { key: 'waste', num: show(stats?.wasteWeek), lbl: 'Waste · wk', to: '/waste' },
   ]
 
   return (

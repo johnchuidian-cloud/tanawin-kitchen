@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { addIngredient, learnAlias, UNITS, MEAL_TAGS, shortUnit } from '../lib/inventory.js'
+import { addIngredient, learnAlias, UNITS, shortUnit } from '../lib/inventory.js'
 import { findExisting, englishSuggestion } from '../lib/ingredient-match.js'
 import { CategoryField, PackSizeField } from './CategoryPackFields.jsx'
 import { resolveFormCategory } from '../lib/categories.js'
@@ -10,7 +10,6 @@ const BLANK = {
   unit: 'kg',
   quantity: '',
   minThreshold: '',
-  mealTag: '',
   notes: '',
   category: '',
   newCategory: '',
@@ -181,18 +180,6 @@ export default function AddStockItem({ items, onAdded, onPicked, onCancel }) {
           placeholder="leave blank if unsure"
         />
       </div>
-      <div className="field">
-        <label>Mainly used for (optional)</label>
-        <select value={form.mealTag} onChange={(e) => set('mealTag', e.target.value)}>
-          <option value="">— not set —</option>
-          {MEAL_TAGS.map((m) => (
-            <option key={m.key} value={m.key}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {/* Only offered once migration 13 has run — checked against the list we
           were handed rather than assumed. */}
       {(items ?? []).some((i) => 'notes' in i) ? (
